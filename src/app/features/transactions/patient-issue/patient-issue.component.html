@@ -1,0 +1,81 @@
+<div class="txn-page">
+  <header class="page-header">
+    <div>
+      <h1>Patient Issue</h1>
+      <p>Dispense items for admitted patients and update stock immediately.</p>
+    </div>
+    <button *ngIf="!embeddedMode" mat-stroked-button routerLink="/employee-dashboard">Back to Dashboard</button>
+  </header>
+
+  <mat-card class="txn-card">
+    <p class="state" *ngIf="loading">Loading products and locations...</p>
+    <p class="state error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+    <p class="state success" *ngIf="!loading && successMessage">{{ successMessage }}</p>
+
+    <form class="txn-form" [formGroup]="form" (ngSubmit)="onSubmit()" *ngIf="!loading">
+      <mat-form-field appearance="outline">
+        <mat-label>Patient Name</mat-label>
+        <input matInput formControlName="patientName" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Patient ID (optional)</mat-label>
+        <input matInput formControlName="patientId" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Department</mat-label>
+        <input matInput formControlName="department" placeholder="Emergency, ICU, Pediatrics..." />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Notes</mat-label>
+        <input matInput formControlName="notes" />
+      </mat-form-field>
+
+      <section class="items-section" formArrayName="items">
+        <div class="items-header">
+          <h3>Issue Items</h3>
+          <button mat-stroked-button type="button" (click)="addItem()">Add Item</button>
+        </div>
+
+        <article class="item-row" *ngFor="let item of items.controls; let i = index" [formGroupName]="i">
+          <mat-form-field appearance="outline">
+            <mat-label>Product</mat-label>
+            <select matNativeControl formControlName="productId">
+              <option value="">Select product</option>
+              <option *ngFor="let product of products" [value]="product.id">
+                {{ product.name }} ({{ product.sku }})
+              </option>
+            </select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Location</mat-label>
+            <select matNativeControl formControlName="locationId">
+              <option value="">Select location</option>
+              <option *ngFor="let location of locations" [value]="location.id">{{ location.name }}</option>
+            </select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Quantity</mat-label>
+            <input matInput type="number" min="1" formControlName="quantity" />
+          </mat-form-field>
+
+          <div class="row-actions">
+            <span>Available: {{ getAvailableStock(i) }}</span>
+            <button mat-stroked-button color="warn" type="button" (click)="removeItem(i)">Remove</button>
+          </div>
+        </article>
+      </section>
+
+      <div class="form-actions">
+        <button *ngIf="!embeddedMode" mat-stroked-button type="button" routerLink="/employee-dashboard">Cancel</button>
+        <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || submitting">
+          {{ submitting ? 'Posting...' : 'Post Patient Issue' }}
+        </button>
+      </div>
+    </form>
+  </mat-card>
+</div>

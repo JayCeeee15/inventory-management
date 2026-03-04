@@ -1,0 +1,82 @@
+<div class="product-form-page">
+  <header class="form-header">
+    <div>
+      <h1>{{ isEditMode ? 'Edit Inventory Item' : 'Add Inventory Item' }}</h1>
+      <p>{{ isEditMode ? 'Update item details and stock settings.' : 'Create a new hospital inventory record.' }}</p>
+    </div>
+    <button *ngIf="!embeddedMode" mat-stroked-button routerLink="/products">Back to Item Master</button>
+  </header>
+
+  <mat-card class="form-card">
+    <div class="state" *ngIf="loading">Loading inventory item details...</div>
+    <div class="state error" *ngIf="!loading && errorMessage">{{ errorMessage }}</div>
+
+    <form *ngIf="!loading" [formGroup]="form" (ngSubmit)="onSubmit()" class="product-form">
+      <mat-form-field appearance="outline">
+        <mat-label>SKU</mat-label>
+        <input matInput formControlName="sku" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Item Name</mat-label>
+        <input matInput formControlName="name" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Category</mat-label>
+        <select matNativeControl formControlName="categoryId">
+          <option value="">Select category</option>
+          <option *ngFor="let category of categories" [value]="category.id">{{ category.name }}</option>
+        </select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Unit</mat-label>
+        <input matInput formControlName="unit" placeholder="box, pack, unit" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-row">
+        <mat-label>Description</mat-label>
+        <textarea matInput rows="3" formControlName="description"></textarea>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Unit Cost</mat-label>
+        <input matInput type="number" step="0.01" min="0" formControlName="price" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Reorder Level</mat-label>
+        <input matInput type="number" min="0" formControlName="reorderLevel" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Controlled Item</mat-label>
+        <select matNativeControl formControlName="controlled">
+          <option value="false">No</option>
+          <option value="true">Yes</option>
+        </select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Initial Quantity</mat-label>
+        <input matInput type="number" min="0" formControlName="initialQuantity" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Initial Stock Location</mat-label>
+        <select matNativeControl formControlName="locationId">
+          <option value="">Select location</option>
+          <option *ngFor="let location of locations" [value]="location.id">{{ location.name }}</option>
+        </select>
+      </mat-form-field>
+
+      <div class="form-actions">
+        <button *ngIf="!embeddedMode" mat-stroked-button type="button" routerLink="/products">Cancel</button>
+        <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || saving">
+          {{ saving ? 'Saving...' : isEditMode ? 'Update Item' : 'Create Item' }}
+        </button>
+      </div>
+    </form>
+  </mat-card>
+</div>

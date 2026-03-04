@@ -1,0 +1,80 @@
+:host {
+  display: block;
+}
+
+.product-form-page {
+  min-height: 100vh;
+  padding: 24px;
+  background: linear-gradient(180deg, #fffefe 0%, #fff4f6 100%);
+}
+
+.form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.form-header h1 {
+  margin: 0;
+  color: #61111d;
+  font-size: 1.5rem;
+}
+
+.form-header p {
+  margin: 6px 0 0;
+  color: #7a3b44;
+}
+
+.form-card {
+  border-radius: 12px;
+  border: 1px solid #f0c4cb;
+  max-width: 860px;
+  box-shadow: 0 10px 24px rgba(127, 29, 45, 0.09);
+}
+
+.product-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.full-row {
+  grid-column: 1 / -1;
+}
+
+.form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.state {
+  padding: 20px;
+  color: #7a3b44;
+}
+
+.state.error {
+  color: #b91c1c;
+}
+
+@media (max-width: 800px) {
+  .product-form {
+    grid-template-columns: 1fr;
+  }
+
+  .form-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .form-actions {
+    justify-content: stretch;
+  }
+
+  .form-actions button {
+    flex: 1;
+  }
+}

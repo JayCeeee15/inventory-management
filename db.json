@@ -1,0 +1,85 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "username": "admin",
+      "password": "admin123",
+      "token": "mock-jwt-token-1"
+    },
+    {
+      "id": 2,
+      "username": "manager",
+      "password": "manager123",
+      "token": "mock-jwt-token-2"
+    }
+  ],
+  "products": [
+    {
+      "id": 1,
+      "name": "Paracetamol 500mg",
+      "category": "Pharmacy",
+      "quantity": 320,
+      "price": 0.12,
+      "supplier": "CareMed Pharma",
+      "dateAdded": "2026-02-26T10:30:00Z"
+    },
+    {
+      "id": 2,
+      "name": "N95 Respirator Mask",
+      "category": "Emergency",
+      "quantity": 90,
+      "price": 1.45,
+      "supplier": "SafeAir Medical",
+      "dateAdded": "2026-02-24T14:45:00Z"
+    },
+    {
+      "id": 3,
+      "name": "IV Cannula 22G",
+      "category": "Nursing",
+      "quantity": 20,
+      "price": 0.95,
+      "supplier": "NurseLine Supplies",
+      "dateAdded": "2026-02-22T09:15:00Z"
+    },
+    {
+      "id": 4,
+      "name": "Surgical Gloves (M)",
+      "category": "Operating Room",
+      "quantity": 140,
+      "price": 0.35,
+      "supplier": "Medline Supply",
+      "dateAdded": "2026-02-20T11:05:00Z"
+    },
+    {
+      "id": 5,
+      "name": "Insulin Glargine Pen",
+      "category": "Pharmacy",
+      "quantity": 18,
+      "price": 14.9,
+      "supplier": "CareMed Pharma",
+      "dateAdded": "2026-02-18T08:00:00Z"
+    }
+  ],
+  "categories": [
+    {
+      "id": 1,
+      "name": "Pharmacy",
+      "description": "Medicines and temperature-controlled drugs"
+    },
+    {
+      "id": 2,
+      "name": "Emergency",
+      "description": "ER and trauma consumables"
+    },
+    {
+      "id": 3,
+      "name": "Nursing",
+      "description": "Ward consumables and bedside supplies"
+    },
+    {
+      "id": 4,
+      "name": "Operating Room",
+      "description": "Surgical and sterile procedure items"
+    }
+  ]
+}

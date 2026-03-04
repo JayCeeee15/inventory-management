@@ -1,0 +1,40 @@
+<div class="signup-page">
+  <div class="signup-card">
+    <a routerLink="/" class="home-link">&lt; Back to Home</a>
+
+    <h1>Create Hospital Staff Account</h1>
+    <p>Register as staff and access the hospital inventory workspace.</p>
+
+    <form [formGroup]="form" (ngSubmit)="onSubmit()">
+      <mat-form-field appearance="outline" class="field">
+        <mat-label>Full Name</mat-label>
+        <input matInput formControlName="fullName" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="field">
+        <mat-label>Email</mat-label>
+        <input matInput type="email" formControlName="email" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="field">
+        <mat-label>Username</mat-label>
+        <input matInput formControlName="username" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="field">
+        <mat-label>Password</mat-label>
+        <input matInput type="password" formControlName="password" />
+      </mat-form-field>
+
+      <div class="error" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+      <button mat-flat-button color="primary" class="submit" type="submit" [disabled]="loading || form.invalid">
+        <span *ngIf="!loading">Sign Up</span>
+        <mat-spinner diameter="20" *ngIf="loading"></mat-spinner>
+      </button>
+    </form>
+
+    <p class="success" *ngIf="submitted">Staff account created.</p>
+    <a routerLink="/login" class="back">Back to Login</a>
+  </div>
+</div>

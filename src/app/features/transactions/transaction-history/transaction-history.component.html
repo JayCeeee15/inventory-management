@@ -1,0 +1,147 @@
+<div class="history-page">
+  <header class="history-header">
+    <div class="left">
+      <h1>Transaction History</h1>
+      <p>{{ todayLabel }}</p>
+    </div>
+
+    <div class="right" *ngIf="!embeddedMode">
+      <div class="profile-chip">
+        <div class="avatar">{{ avatarInitials }}</div>
+        <div>
+          <strong>{{ displayName }}</strong>
+          <span>{{ roleLabel }}</span>
+        </div>
+      </div>
+      <button mat-stroked-button routerLink="/employee-dashboard">Back to Dashboard</button>
+    </div>
+  </header>
+
+  <mat-card class="filters-card">
+    <form class="filters" [formGroup]="form" (ngSubmit)="applyFilters()">
+      <div class="field">
+        <label for="movementType">Type</label>
+        <select id="movementType" formControlName="movementType">
+          <option *ngFor="let option of movementTypeOptions" [value]="option.value">
+            {{ option.label }}
+          </option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="productId">Product</label>
+        <select id="productId" formControlName="productId">
+          <option value="">All products</option>
+          <option *ngFor="let product of products" [value]="product.id">{{ product.name }}</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="locationId">Location</label>
+        <select id="locationId" formControlName="locationId">
+          <option value="">All locations</option>
+          <option *ngFor="let location of locations" [value]="location.id">{{ location.name }}</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="dateFrom">Date From</label>
+        <input id="dateFrom" type="date" formControlName="dateFrom" />
+      </div>
+
+      <div class="field">
+        <label for="dateTo">Date To</label>
+        <input id="dateTo" type="date" formControlName="dateTo" />
+      </div>
+
+      <div class="field">
+        <label for="pageSize">Rows per page</label>
+        <select id="pageSize" formControlName="pageSize">
+          <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
+        </select>
+      </div>
+
+      <div class="quick-range">
+        <button mat-stroked-button type="button" (click)="setQuickRange(7)" [disabled]="loadingTable">Last 7 days</button>
+        <button mat-stroked-button type="button" (click)="setQuickRange(30)" [disabled]="loadingTable">Last 30 days</button>
+      </div>
+
+      <div class="actions">
+        <button mat-flat-button color="primary" type="submit" [disabled]="loadingFilters || loadingTable">
+          Apply Filters
+        </button>
+
+        <button mat-stroked-button type="button" (click)="resetFilters()" [disabled]="loadingFilters || loadingTable">
+          Reset
+        </button>
+
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="exportCurrentPageCsv()"
+          [disabled]="loadingTable || exportingPage || movements.length === 0"
+        >
+          {{ exportingPage ? 'Exporting...' : 'Export This Page' }}
+        </button>
+
+        <button mat-flat-button color="accent" type="button" (click)="exportAllFilteredCsv()" [disabled]="loadingTable || exportingAll">
+          {{ exportingAll ? 'Exporting Filtered...' : 'Export All Filtered' }}
+        </button>
+      </div>
+    </form>
+  </mat-card>
+
+  <p class="state" *ngIf="loadingFilters">Loading filters...</p>
+  <p class="state" *ngIf="loadingTable">Loading transactions...</p>
+  <p class="state error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+  <mat-card class="table-card">
+    <div class="table-wrap" *ngIf="movements.length > 0; else noRows">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Product</th>
+            <th>Location</th>
+            <th>Qty</th>
+            <th>Reference</th>
+            <th>User</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let movement of movements; trackBy: trackByMovementId">
+            <td>{{ movement.createdAt | date: 'MMM d, y h:mm a' }}</td>
+            <td>
+              <span class="type-pill">{{ formatMovementType(movement.movementType) }}</span>
+            </td>
+            <td>{{ movement.productName }}</td>
+            <td>{{ movement.locationName || 'General' }}</td>
+            <td [class.qty-out]="movement.quantity < 0" [class.qty-in]="movement.quantity > 0">
+              {{ movement.quantity }}
+            </td>
+            <td>{{ getReferenceLabel(movement) }}</td>
+            <td>{{ movement.createdBy?.username || 'System' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <ng-template #noRows>
+      <p class="empty">No transactions found for the selected filters.</p>
+    </ng-template>
+
+    <div class="pager" *ngIf="total > 0">
+      <p>Showing {{ startItem }}-{{ endItem }} of {{ total }}</p>
+      <div class="pager-controls">
+        <button mat-stroked-button type="button" (click)="prevPage()" [disabled]="page <= 1 || loadingTable">
+          Previous
+        </button>
+        <span>Page {{ page }} of {{ totalPages }}</span>
+        <button mat-stroked-button type="button" (click)="nextPage()" [disabled]="page >= totalPages || loadingTable">
+          Next
+        </button>
+      </div>
+    </div>
+  </mat-card>
+</div>

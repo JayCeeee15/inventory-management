@@ -1,0 +1,25 @@
+:host { display: block; }
+.about-page {
+  min-height: 100vh;
+  padding: 28px;
+  background: linear-gradient(180deg, #fffefe 0%, #fff4f6 100%);
+  font-family: Poppins, 'Trebuchet MS', sans-serif;
+}
+.about-page h1 { margin: 0; color: #61111d; }
+.about-page p { color: #6f4950; }
+.about-card {
+  margin-top: 18px;
+  max-width: 760px;
+  background: #fff;
+  border: 1px solid #f0c4cb;
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 12px 26px rgba(127, 29, 45, 0.11);
+}
+.back-link {
+  display: inline-block;
+  margin-top: 10px;
+  color: #9f1239;
+  text-decoration: none;
+  font-weight: 600;
+}

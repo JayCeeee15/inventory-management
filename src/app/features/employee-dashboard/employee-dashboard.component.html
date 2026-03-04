@@ -1,0 +1,199 @@
+<div class="staff-shell" [class.nav-collapsed]="!sideNavOpen">
+  <aside class="side-nav">
+    <div class="brand">
+      <div class="brand-left">
+        <div class="brand-mark">H+</div>
+        <div class="brand-copy">
+          <h2>Inventory Staff</h2>
+          <p>Hospital Operations</p>
+        </div>
+      </div>
+    </div>
+
+    <nav class="nav-links">
+      <button
+        type="button"
+        class="nav-link-btn"
+        *ngFor="let item of navItems"
+        (click)="switchSection(item.section)"
+        [class.active]="activeSection === item.section"
+      >
+        <span class="nav-icon material-symbols-outlined">{{ item.icon }}</span>
+        <span class="nav-copy">
+          <strong>{{ item.label }}</strong>
+          <span>{{ item.helper }}</span>
+        </span>
+      </button>
+    </nav>
+
+    <div class="side-profile">
+      <div class="avatar">{{ avatarInitials }}</div>
+      <div class="side-profile-meta">
+        <h3>{{ displayName }}</h3>
+        <p>{{ roleLabel }}</p>
+      </div>
+    </div>
+  </aside>
+
+  <button class="side-floating-toggle" type="button" (click)="toggleSideNav()" aria-label="Toggle sidebar">
+    <span class="material-symbols-outlined">
+      {{ sideNavOpen ? 'keyboard_double_arrow_left' : 'keyboard_double_arrow_right' }}
+    </span>
+  </button>
+
+  <main class="main-pane">
+    <header class="top-header">
+      <div class="title-block">
+        <h1>Staff Dashboard</h1>
+        <p>{{ todayLabel }}</p>
+      </div>
+
+      <div class="header-right">
+        <button class="profile-chip" type="button" (click)="openProfileEditor()" aria-label="Edit profile">
+          <div class="profile-avatar">{{ avatarInitials }}</div>
+          <div>
+            <strong>{{ displayName }}</strong>
+            <span>{{ roleLabel }} | Edit Profile</span>
+          </div>
+        </button>
+        <button mat-stroked-button color="warn" (click)="logout()">Logout</button>
+      </div>
+    </header>
+
+    <section class="profile-modal-backdrop" *ngIf="profileEditorOpen" (click)="closeProfileEditor()">
+      <div class="profile-modal" (click)="$event.stopPropagation()">
+        <div class="profile-modal-header">
+          <h2>Edit Profile</h2>
+          <button type="button" class="close-btn" (click)="closeProfileEditor()">Close</button>
+        </div>
+
+        <div class="profile-meta">
+          <div class="profile-avatar large">{{ avatarInitials }}</div>
+          <div>
+            <p><strong>Role:</strong> {{ roleLabel }}</p>
+            <p><strong>Username:</strong> {{ accountUsername }}</p>
+            <p><strong>Email:</strong> {{ accountEmail || 'Not set' }}</p>
+          </div>
+        </div>
+
+        <form class="profile-form" [formGroup]="profileForm" (ngSubmit)="saveProfile()">
+          <label for="fullName">Full Name</label>
+          <input id="fullName" type="text" formControlName="fullName" />
+
+          <label for="email">Email</label>
+          <input id="email" type="email" formControlName="email" />
+
+          <label for="username">Username</label>
+          <input id="username" type="text" formControlName="username" />
+
+          <p class="form-error" *ngIf="profileErrorMessage">{{ profileErrorMessage }}</p>
+          <p class="form-success" *ngIf="profileSuccessMessage">{{ profileSuccessMessage }}</p>
+
+          <div class="profile-actions">
+            <button mat-stroked-button type="button" (click)="closeProfileEditor()" [disabled]="profileSaving">Cancel</button>
+            <button mat-flat-button color="primary" type="submit" [disabled]="profileSaving">
+              {{ profileSaving ? 'Saving...' : 'Save Changes' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <p class="state" *ngIf="loading">Loading dashboard data...</p>
+    <p class="state error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+
+    <ng-container [ngSwitch]="activeSection">
+      <ng-container *ngSwitchCase="'overview'">
+        <section class="kpi-grid">
+          <mat-card class="kpi-card">
+            <div class="kpi-icon">PR</div>
+            <div>
+              <h3>Total Products</h3>
+              <p class="kpi-value">{{ totalProducts }}</p>
+              <span>active items tracked</span>
+            </div>
+          </mat-card>
+
+          <mat-card class="kpi-card">
+            <div class="kpi-icon warning">LS</div>
+            <div>
+              <h3>Low Stock Alerts</h3>
+              <p class="kpi-value">{{ lowStockItems }}</p>
+              <span>items below reorder level</span>
+            </div>
+          </mat-card>
+
+          <mat-card class="kpi-card">
+            <div class="kpi-icon">MV</div>
+            <div>
+              <h3>Movements (7 Days)</h3>
+              <p class="kpi-value">{{ weeklyMovements }}</p>
+              <span>recent stock transactions</span>
+            </div>
+          </mat-card>
+
+          <mat-card class="kpi-card">
+            <div class="kpi-icon">CT</div>
+            <div>
+              <h3>Categories</h3>
+              <p class="kpi-value">{{ totalCategories }}</p>
+              <span>product group definitions</span>
+            </div>
+          </mat-card>
+        </section>
+
+        <section class="content-grid">
+          <mat-card class="panel-card">
+            <h2>Recent Stock Activities</h2>
+            <ul *ngIf="recentMovements.length > 0; else emptyMovements">
+              <li *ngFor="let movement of recentMovements; trackBy: trackByMovementId">
+                <div class="entry-head">
+                  <strong>{{ movement.productName }}</strong>
+                  <span class="type">{{ formatMovementType(movement.movementType) }}</span>
+                </div>
+                <div class="entry-meta">
+                  <span>Qty: {{ movement.quantity }}</span>
+                  <span>Location: {{ movement.locationName || 'General' }}</span>
+                  <span>{{ formatRelativeTime(movement.createdAt) }}</span>
+                </div>
+              </li>
+            </ul>
+            <ng-template #emptyMovements>
+              <p class="empty">No recent movements available.</p>
+            </ng-template>
+          </mat-card>
+
+          <mat-card class="panel-card quick-panel">
+            <h2>Quick Actions</h2>
+            <div class="quick-actions">
+              <button type="button" *ngFor="let action of quickActions" (click)="switchSection(action.section)">
+                <strong>{{ action.title }}</strong>
+                <span>{{ action.subtitle }}</span>
+              </button>
+            </div>
+          </mat-card>
+        </section>
+      </ng-container>
+
+      <section class="embedded-section" *ngSwitchCase="'walkin'">
+        <app-walk-in-sale [embeddedMode]="true"></app-walk-in-sale>
+      </section>
+
+      <section class="embedded-section" *ngSwitchCase="'issue'">
+        <app-patient-issue [embeddedMode]="true"></app-patient-issue>
+      </section>
+
+      <section class="embedded-section" *ngSwitchCase="'history'">
+        <app-transaction-history [embeddedMode]="true"></app-transaction-history>
+      </section>
+
+      <section class="embedded-section" *ngSwitchCase="'products'">
+        <app-product-list></app-product-list>
+      </section>
+
+      <section class="embedded-section" *ngSwitchCase="'categories'">
+        <app-category-list></app-category-list>
+      </section>
+    </ng-container>
+  </main>
+</div>

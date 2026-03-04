@@ -1,0 +1,78 @@
+<div class="login-page">
+  <div class="login-panel">
+    <a routerLink="/" class="back-home">&lt; Back to Home</a>
+
+    <div class="brand-row">
+      <div class="brand-dot"></div>
+      <h1>MediStock HMS</h1>
+    </div>
+    <p class="subtitle">Sign in to hospital inventory portal</p>
+    <div class="api-status" [class.online]="apiStatus === 'online'" [class.offline]="apiStatus === 'offline'">
+      <span class="status-dot" aria-hidden="true"></span>
+      <span>{{ apiStatusLabel }}</span>
+    </div>
+
+    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Username</mat-label>
+        <input matInput formControlName="username" autocomplete="username" />
+        <span matSuffix class="suffix-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" role="img">
+            <path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5Z" />
+          </svg>
+        </span>
+        <mat-error *ngIf="loginForm.get('username')?.hasError('required')">Username is required</mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Password</mat-label>
+        <input
+          matInput
+          [type]="hidePassword ? 'password' : 'text'"
+          formControlName="password"
+          autocomplete="current-password"
+        />
+        <button
+          mat-icon-button
+          matSuffix
+          (click)="hidePassword = !hidePassword"
+          type="button"
+          aria-label="Toggle password visibility"
+        >
+          <svg *ngIf="hidePassword" class="eye-icon" viewBox="0 0 24 24" role="img">
+            <path d="M12 5c5.08 0 9.27 3.11 11 7-1.73 3.89-5.92 7-11 7S2.73 15.89 1 12c1.73-3.89 5.92-7 11-7Zm0 2C8.3 7 5.14 9.06 3.46 12 5.14 14.94 8.3 17 12 17s6.86-2.06 8.54-5C18.86 9.06 15.7 7 12 7Zm0 2.5A2.5 2.5 0 1 1 9.5 12 2.5 2.5 0 0 1 12 9.5Z" />
+          </svg>
+          <svg *ngIf="!hidePassword" class="eye-icon" viewBox="0 0 24 24" role="img">
+            <path d="m2.71 3.29 18 18-1.42 1.42-2.53-2.53A12.7 12.7 0 0 1 12 19C6.92 19 2.73 15.89 1 12a12.59 12.59 0 0 1 4.47-5.49L1.29 4.71Zm9.88 9.88-3.18-3.18a2.5 2.5 0 0 0 3.18 3.18ZM12 7a8.64 8.64 0 0 1 8.54 5 10.63 10.63 0 0 1-2.35 3.16l-1.43-1.43A6.6 6.6 0 0 0 18.26 12C16.58 9.06 13.42 7 9.72 7a9 9 0 0 0-2.31.3L5.73 5.62A11.75 11.75 0 0 1 12 7Z" />
+          </svg>
+        </button>
+        <mat-error *ngIf="loginForm.get('password')?.hasError('required')">Password is required</mat-error>
+      </mat-form-field>
+
+      <div *ngIf="errorMessage" class="error-message">
+        <span class="error-icon" aria-hidden="true">!</span>
+        <span>{{ errorMessage }}</span>
+      </div>
+
+      <div class="demo-info">
+        <p><strong>Admin:</strong> admin / admin123</p>
+        <p><strong>Hospital Staff:</strong> user / user123</p>
+      </div>
+
+      <button
+        mat-flat-button
+        color="primary"
+        type="submit"
+        [disabled]="loginForm.invalid || isLoading || !isApiOnline"
+        class="submit-btn"
+      >
+        <span *ngIf="!isLoading">Sign in</span>
+        <mat-spinner diameter="20" *ngIf="isLoading"></mat-spinner>
+      </button>
+    </form>
+
+    <p class="signup-link">
+      New employee? <a routerLink="/signup">Sign up here</a>
+    </p>
+  </div>
+</div>

@@ -1,0 +1,38 @@
+:host,
+.app-shell {
+  display: block;
+  min-height: 100vh;
+}
+
+.route-loader {
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 247, 248, 0.82);
+  backdrop-filter: blur(1px);
+  display: grid;
+  place-items: center;
+  z-index: 9999;
+  gap: 8px;
+}
+
+.route-loader p {
+  margin: 0;
+  color: #7f1d2d;
+  font-weight: 600;
+  font-family: Poppins, 'Trebuchet MS', sans-serif;
+}
+
+.spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid #f3c7cf;
+  border-top-color: #c8102e;
+  animation: spin 0.85s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

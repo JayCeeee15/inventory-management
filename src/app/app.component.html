@@ -1,0 +1,8 @@
+<div class="app-shell">
+  <router-outlet></router-outlet>
+
+  <div class="route-loader" *ngIf="isNavigating()">
+    <div class="spinner"></div>
+    <p>Loading...</p>
+  </div>
+</div>

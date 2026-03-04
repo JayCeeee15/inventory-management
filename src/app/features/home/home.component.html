@@ -1,0 +1,115 @@
+<div class="home-page">
+  <header class="utility-header">
+    <div class="brand-wrap">
+      <a routerLink="/" class="brand" aria-label="MediCross home">
+        <span class="cross-mark">+</span>
+        <span class="brand-main">MEDI</span><span class="brand-sub">CROSS</span>
+      </a>
+      <p class="tagline">Hospital Inventory Exchange</p>
+    </div>
+
+    <div class="utility-actions">
+      <p class="status-chip">Cart: 0 tracked items</p>
+      <a routerLink="/login" class="action-btn ghost">Log In</a>
+      <a routerLink="/signup" class="action-btn solid">Sign Up</a>
+    </div>
+  </header>
+
+  <nav class="main-nav" aria-label="Primary">
+    <a *ngFor="let link of navLinks" [routerLink]="link.route" class="nav-item">{{ link.label }}</a>
+  </nav>
+
+  <section class="search-strip" aria-label="Search inventory">
+    <div class="search-box">
+      <input type="text" placeholder="Search medicines, supplies, and equipment" />
+      <button type="button">Search</button>
+    </div>
+
+    <div class="filter-box">
+      <label for="departmentFilter">Department</label>
+      <select id="departmentFilter">
+        <option>All Departments</option>
+        <option>Emergency</option>
+        <option>Pharmacy</option>
+        <option>Operating Room</option>
+        <option>Laboratory</option>
+      </select>
+    </div>
+  </section>
+
+  <main class="home-grid">
+    <aside class="sidebar">
+      <section class="panel">
+        <h2>Categories</h2>
+        <ul>
+          <li *ngFor="let category of categories; index as i">
+            <span>{{ category }}</span>
+            <span class="count">{{ (i + 3) * 6 }}</span>
+          </li>
+        </ul>
+      </section>
+
+      <section class="panel mini" *ngFor="let section of quickPanels">
+        <h3>{{ section }}</h3>
+      </section>
+    </aside>
+
+    <section class="content-area">
+      <article class="hero-card">
+        <div class="hero-copy">
+          <p class="eyebrow">Smart Medical Stock Control</p>
+          <h1>One view for stock levels, urgency, and movement.</h1>
+          <p>
+            Keep your pharmacy, wards, and central storage aligned with a focused hospital inventory workspace.
+            This is your front-line panel before login.
+          </p>
+          <div class="hero-actions">
+            <a routerLink="/login" class="cta solid">Open Inventory</a>
+            <a routerLink="/signup" class="cta ghost">Create Staff Account</a>
+          </div>
+        </div>
+
+        <img
+          [src]="heroImage"
+          (error)="useFallbackImage($event)"
+          alt="Hospital inventory preview"
+          class="hero-image"
+        />
+      </article>
+
+      <section class="featured-stock">
+        <div class="section-head">
+          <h2>Today's Priority Stock</h2>
+          <a routerLink="/login">View full inventory</a>
+        </div>
+
+        <div class="product-grid">
+          <article class="product-card" *ngFor="let item of featuredItems">
+            <img [src]="item.image" (error)="useFallbackImage($event)" [alt]="item.name" class="product-image" />
+            <div class="product-copy">
+              <p class="type">{{ item.type }}</p>
+              <h3>{{ item.name }}</h3>
+              <p class="tag">{{ item.stockTag }}</p>
+            </div>
+            <div class="product-foot">
+              <span>{{ item.priceLabel }}</span>
+              <a routerLink="/login">Track</a>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="info-grid">
+        <article class="info-card">
+          <h3>Expiry-Aware Workflow</h3>
+          <p>Batch-sensitive monitoring helps reduce wastage and keeps high-risk items visible early.</p>
+        </article>
+
+        <article class="info-card">
+          <h3>Role-Based Access</h3>
+          <p>Employees and admins land in the correct dashboard after authentication.</p>
+        </article>
+      </section>
+    </section>
+  </main>
+</div>

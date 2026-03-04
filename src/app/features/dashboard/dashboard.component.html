@@ -1,0 +1,259 @@
+<div class="admin-shell" [class.nav-collapsed]="!sideNavOpen">
+  <aside class="side-nav">
+    <div class="brand">
+      <div class="brand-left">
+        <div class="brand-mark">H+</div>
+        <div class="brand-copy">
+          <h2>Inventory Admin</h2>
+          <p>Hospital Control Center</p>
+        </div>
+      </div>
+    </div>
+
+    <nav class="nav-links">
+      <button
+        type="button"
+        class="nav-link-btn"
+        *ngFor="let item of navItems"
+        (click)="switchSection(item.section)"
+        [class.active]="activeSection === item.section"
+      >
+        <span class="nav-icon material-symbols-outlined">{{ item.icon }}</span>
+        <span class="nav-copy">
+          <strong>{{ item.label }}</strong>
+          <span>{{ item.helper }}</span>
+        </span>
+      </button>
+    </nav>
+
+    <div class="side-profile">
+      <div class="avatar">{{ avatarInitials }}</div>
+      <div class="side-profile-meta">
+        <h3>{{ displayName }}</h3>
+        <p>{{ roleLabel }}</p>
+      </div>
+    </div>
+  </aside>
+
+  <button class="side-floating-toggle" type="button" (click)="toggleSideNav()" aria-label="Toggle sidebar">
+    <span class="material-symbols-outlined">
+      {{ sideNavOpen ? 'keyboard_double_arrow_left' : 'keyboard_double_arrow_right' }}
+    </span>
+  </button>
+
+  <main class="main-pane">
+    <header class="top-header">
+      <div class="title-block">
+        <h1>Admin Dashboard</h1>
+        <p>{{ todayLabel }}</p>
+      </div>
+
+      <div class="header-right">
+        <div class="profile-chip">
+          <div class="profile-avatar">{{ avatarInitials }}</div>
+          <div>
+            <strong>{{ displayName }}</strong>
+            <span>{{ roleLabel }}</span>
+          </div>
+        </div>
+        <button mat-stroked-button color="warn" (click)="logout()">Logout</button>
+      </div>
+    </header>
+
+    <p class="state" *ngIf="loading">Loading dashboard data...</p>
+    <p class="state error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+
+    <ng-container [ngSwitch]="activeSection">
+      <ng-container *ngSwitchCase="'overview'">
+        <section class="summary-cards">
+          <mat-card class="summary-card">
+            <mat-card-content>
+              <div class="card-icon">
+                <span class="material-symbols-outlined">inventory_2</span>
+              </div>
+              <div class="card-details">
+                <span class="card-label">Total Item SKUs</span>
+                <span class="card-value">{{ totalItems }}</span>
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <mat-card class="summary-card">
+            <mat-card-content>
+              <div class="card-icon warning">
+                <span class="material-symbols-outlined">warning</span>
+              </div>
+              <div class="card-details">
+                <span class="card-label">Low Stock Alerts</span>
+                <span class="card-value">{{ lowStockItems }}</span>
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <mat-card class="summary-card">
+            <mat-card-content>
+              <div class="card-icon">
+                <span class="material-symbols-outlined">category</span>
+              </div>
+              <div class="card-details">
+                <span class="card-label">Total Categories</span>
+                <span class="card-value">{{ totalCategories }}</span>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </section>
+
+        <section class="quick-actions">
+          <h2>Admin Quick Actions</h2>
+          <div class="action-buttons">
+            <button type="button" class="action-btn" *ngFor="let action of quickActions" (click)="switchSection(action.section)">
+              <strong>{{ action.title }}</strong>
+              <span>{{ action.subtitle }}</span>
+            </button>
+          </div>
+        </section>
+
+        <div class="dashboard-grid">
+          <mat-card class="recent-card">
+            <mat-card-header>
+              <mat-card-title>Recent Activities</mat-card-title>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="activity-scroll">
+                <ul class="activity-list">
+                  <li class="activity-item" *ngFor="let item of paginatedActivities">
+                    <span class="activity-dot"></span>
+                    <div class="activity-text">
+                      <p class="activity-action">{{ item.action }}</p>
+                      <p class="activity-detail">{{ item.detail }}</p>
+                    </div>
+                    <span class="activity-time">{{ item.time }}</span>
+                  </li>
+                </ul>
+                <p class="empty" *ngIf="paginatedActivities.length === 0">No recent activities yet.</p>
+              </div>
+
+              <div class="activity-pagination">
+                <button mat-stroked-button type="button" (click)="prevActivityPage()" [disabled]="currentActivityPage === 1">Prev</button>
+                <span>Page {{ currentActivityPage }} / {{ totalActivityPages }}</span>
+                <button
+                  mat-stroked-button
+                  type="button"
+                  (click)="nextActivityPage()"
+                  [disabled]="currentActivityPage === totalActivityPages"
+                >
+                  Next
+                </button>
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <mat-card class="calendar-card">
+            <mat-card-header>
+              <mat-card-title>Stock Calendar</mat-card-title>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="calendar-nav">
+                <button mat-stroked-button type="button" (click)="prevMonth()">Prev</button>
+                <span class="month-label">{{ monthLabel }}</span>
+                <button mat-stroked-button type="button" (click)="nextMonth()">Next</button>
+              </div>
+
+              <div class="range-switch">
+                <button mat-stroked-button type="button" [class.active]="selectedRange === 'day'" (click)="setRange('day')">Day</button>
+                <button mat-stroked-button type="button" [class.active]="selectedRange === 'week'" (click)="setRange('week')">Week</button>
+                <button mat-stroked-button type="button" [class.active]="selectedRange === 'month'" (click)="setRange('month')">Month</button>
+              </div>
+
+              <div class="range-summary">
+                <p class="range-label">{{ rangeLabel }}</p>
+                <p class="range-total">{{ rangeStockTotal }} total units tracked</p>
+                <div class="range-products" *ngIf="rangeProductSummary.length > 0">
+                  <span class="range-product" *ngFor="let item of rangeProductSummary | slice:0:4">
+                    {{ item.name }} ({{ item.total }})
+                  </span>
+                </div>
+              </div>
+
+              <div class="calendar-scroll">
+                <div class="calendar-grid weekday-row">
+                  <span *ngFor="let day of weekdayHeaders">{{ day }}</span>
+                </div>
+
+                <div class="calendar-grid" *ngFor="let week of calendarWeeks">
+                  <button
+                    *ngFor="let day of week"
+                    type="button"
+                    class="calendar-day"
+                    [class.muted]="!day.inCurrentMonth"
+                    [class.today]="day.isToday"
+                    (click)="selectDay(day)"
+                  >
+                    <span class="day-number">{{ day.value }}</span>
+                    <span class="day-stock">{{ day.stockTotal }} stk</span>
+                    <div class="day-products" *ngIf="day.products.length > 0">
+                      <span class="day-product" *ngFor="let product of day.products | slice:0:2">{{ product.name }}</span>
+                      <span class="day-product more" *ngIf="day.products.length > 2">+{{ day.products.length - 2 }} more</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
+      </ng-container>
+
+      <section class="embedded-section" *ngSwitchCase="'products'">
+        <app-product-list
+          [embeddedMode]="true"
+          (createRequested)="openProductCreate()"
+          (editRequested)="openProductEdit($event)"
+        ></app-product-list>
+      </section>
+
+      <section class="embedded-section" *ngSwitchCase="'productCreate'">
+        <app-product-form [embeddedMode]="true" (formCompleted)="onProductFormCompleted()"></app-product-form>
+      </section>
+
+      <section class="embedded-section" *ngSwitchCase="'productEdit'">
+        <app-product-form
+          [embeddedMode]="true"
+          [editProductId]="selectedProductId"
+          (formCompleted)="onProductFormCompleted()"
+        ></app-product-form>
+      </section>
+
+      <section class="embedded-section" *ngSwitchCase="'categories'">
+        <app-category-list
+          [embeddedMode]="true"
+          (createRequested)="openCategoryCreate()"
+          (editRequested)="openCategoryEdit($event)"
+        ></app-category-list>
+      </section>
+
+      <section class="embedded-section" *ngSwitchCase="'categoryCreate'">
+        <app-category-form [embeddedMode]="true" (formCompleted)="onCategoryFormCompleted()"></app-category-form>
+      </section>
+
+      <section class="embedded-section" *ngSwitchCase="'categoryEdit'">
+        <app-category-form
+          [embeddedMode]="true"
+          [editCategoryId]="selectedCategoryId"
+          (formCompleted)="onCategoryFormCompleted()"
+        ></app-category-form>
+      </section>
+
+      <section class="embedded-section" *ngSwitchCase="'walkin'">
+        <app-walk-in-sale [embeddedMode]="true"></app-walk-in-sale>
+      </section>
+
+      <section class="embedded-section" *ngSwitchCase="'issue'">
+        <app-patient-issue [embeddedMode]="true"></app-patient-issue>
+      </section>
+
+      <section class="embedded-section" *ngSwitchCase="'history'">
+        <app-transaction-history [embeddedMode]="true"></app-transaction-history>
+      </section>
+    </ng-container>
+  </main>
+</div>
