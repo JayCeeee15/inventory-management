@@ -1,15 +1,19 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const fs = require('fs');
+const path = require('path');
 
 dotenv.config();
 
 const { authRouter } = require('./routes/auth.routes');
 const { inventoryRouter } = require('./routes/inventory.routes');
+const { shopRouter } = require('./routes/shop.routes');
 const { pool } = require('./db');
 
 const app = express();
 const PORT = Number(process.env.API_PORT || 3001);
+const uploadsDir = path.join(__dirname, 'uploads');
 const defaultAllowedOrigins = [
   'http://localhost:4200',
   'http://127.0.0.1:4200',
@@ -44,6 +48,8 @@ app.use(
 );
 
 app.use(express.json());
+fs.mkdirSync(uploadsDir, { recursive: true });
+app.use('/uploads', express.static(uploadsDir));
 
 app.get('/api', (_req, res) => {
   res.json({
@@ -59,10 +65,16 @@ app.get('/api', (_req, res) => {
       '/api/inventory/categories/:id',
       '/api/inventory/products',
       '/api/inventory/products/:id',
+      '/api/inventory/patients/next-id',
       '/api/inventory/sales',
       '/api/inventory/patient-issues',
       '/api/inventory/stock/movements',
-      '/api/inventory/dashboard/summary'
+      '/api/inventory/dashboard/summary',
+      '/api/shop/public/locations',
+      '/api/shop/public/categories',
+      '/api/shop/public/products',
+      '/api/shop/public/orders',
+      '/api/shop/orders'
     ]
   });
 });
@@ -78,6 +90,7 @@ app.get('/api/health', async (_req, res) => {
 
 app.use('/api/auth', authRouter);
 app.use('/api/inventory', inventoryRouter);
+app.use('/api/shop', shopRouter);
 
 app.use((err, _req, res, _next) => {
   console.error('Unhandled API error:', err);

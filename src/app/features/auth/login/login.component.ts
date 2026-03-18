@@ -50,10 +50,6 @@ export class LoginComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.startHealthMonitoring();
-
-    if (this.authService.isAuthenticated()) {
-      this.router.navigate([this.authService.getCurrentDashboardRoute()]);
-    }
   }
 
   ngOnDestroy(): void {

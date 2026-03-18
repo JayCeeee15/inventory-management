@@ -64,7 +64,7 @@ All endpoints below require `Authorization: Bearer <token>`.
 - `DELETE /api/inventory/products/:id` (admin, soft archive)
 - `POST /api/inventory/stock/receive` (admin)
 - `POST /api/inventory/stock/adjust` (admin)
-- `POST /api/inventory/sales` (walk-in or online stock deduction)
+- `POST /api/inventory/sales` (walk-in or online stock deduction with `paymentMethod`, `amountPaid`, `changeAmount`)
 - `POST /api/inventory/patient-issues` (patient dispensing stock deduction)
 - `GET /api/inventory/stock/movements`
 - `GET /api/inventory/dashboard/summary`

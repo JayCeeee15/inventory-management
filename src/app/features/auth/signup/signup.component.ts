@@ -61,7 +61,7 @@ export class SignupComponent {
     timer(this.submitDelayMs)
       .pipe(
         switchMap(() =>
-          this.authService.signupEmployee({
+          this.authService.signupCustomer({
             fullName: value.fullName,
             email: value.email,
             username: value.username,
@@ -90,7 +90,7 @@ export class SignupComponent {
             return;
           }
 
-          this.errorMessage = 'Failed to create employee account.';
+          this.errorMessage = 'Failed to create customer account.';
         }
       });
   }

@@ -45,6 +45,11 @@
       </div>
 
       <div class="field">
+        <label for="patientId">Patient ID</label>
+        <input id="patientId" type="text" formControlName="patientId" placeholder="PT-1" />
+      </div>
+
+      <div class="field">
         <label for="dateFrom">Date From</label>
         <input id="dateFrom" type="date" formControlName="dateFrom" />
       </div>
@@ -87,13 +92,36 @@
         <button mat-flat-button color="accent" type="button" (click)="exportAllFilteredCsv()" [disabled]="loadingTable || exportingAll">
           {{ exportingAll ? 'Exporting Filtered...' : 'Export All Filtered' }}
         </button>
+
+        <button
+          *ngIf="canManageTransactions"
+          mat-stroked-button
+          type="button"
+          class="danger-action"
+          (click)="clearAllSales()"
+          [disabled]="loadingFilters || loadingTable || clearingSales || deletingTransactionKey !== null"
+        >
+          {{ clearingSales ? 'Clearing Transactions...' : 'Clear All Transactions' }}
+        </button>
       </div>
     </form>
   </mat-card>
 
-  <p class="state" *ngIf="loadingFilters">Loading filters...</p>
-  <p class="state" *ngIf="loadingTable">Loading transactions...</p>
-  <p class="state error" *ngIf="errorMessage">{{ errorMessage }}</p>
+  <div class="state-panel" *ngIf="loadingFilters || loadingTable || errorMessage || successMessage">
+    <p class="state" *ngIf="loadingFilters">{{ loadingFiltersMessage }}</p>
+    <p class="state" *ngIf="!loadingFilters && loadingTable">{{ loadingTableMessage }}</p>
+    <p class="state success" *ngIf="!loadingFilters && !loadingTable && successMessage">{{ successMessage }}</p>
+    <p class="state error" *ngIf="!loadingFilters && !loadingTable && errorMessage">{{ errorMessage }}</p>
+    <button
+      mat-stroked-button
+      type="button"
+      class="retry-btn"
+      (click)="retryLoading()"
+      [disabled]="loadingFilters || loadingTable"
+    >
+      Retry
+    </button>
+  </div>
 
   <mat-card class="table-card">
     <div class="table-wrap" *ngIf="movements.length > 0; else noRows">
@@ -105,8 +133,11 @@
             <th>Product</th>
             <th>Location</th>
             <th>Qty</th>
+            <th>Patient ID</th>
+            <th>Patient Name</th>
             <th>Reference</th>
             <th>User</th>
+            <th *ngIf="canManageTransactions">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -120,8 +151,35 @@
             <td [class.qty-out]="movement.quantity < 0" [class.qty-in]="movement.quantity > 0">
               {{ movement.quantity }}
             </td>
-            <td>{{ getReferenceLabel(movement) }}</td>
+            <td>{{ movement.patientId || '-' }}</td>
+            <td>{{ movement.patientName || '-' }}</td>
+            <td>
+              <button
+                *ngIf="canOpenReferenceDetails(movement); else plainReference"
+                type="button"
+                class="reference-link"
+                (click)="openReferenceDetails(movement)"
+              >
+                {{ getReferenceLabel(movement) }}
+              </button>
+              <ng-template #plainReference>
+                {{ getReferenceLabel(movement) }}
+              </ng-template>
+            </td>
             <td>{{ movement.createdBy?.username || 'System' }}</td>
+            <td *ngIf="canManageTransactions">
+              <button
+                *ngIf="canDeleteMovement(movement)"
+                mat-stroked-button
+                type="button"
+                class="row-delete-btn"
+                (click)="deleteMovement(movement)"
+                [disabled]="clearingSales || isDeletingMovement(movement)"
+              >
+                {{ getDeleteButtonLabel(movement) }}
+              </button>
+              <span *ngIf="!canDeleteMovement(movement)">-</span>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -144,4 +202,151 @@
       </div>
     </div>
   </mat-card>
+
+  <div class="detail-modal-backdrop" *ngIf="detailModalOpen" (click)="closeReferenceDetails()">
+    <section class="detail-modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-label="Transaction details">
+      <div class="detail-modal-header">
+        <div>
+          <h2>Transaction Details</h2>
+          <p *ngIf="selectedSaleDetail; else loadingDetailLabel">
+            {{ selectedSaleDetail.saleNo }} | {{ selectedSaleDetail.createdAt | date: 'MMM d, y h:mm a' }}
+          </p>
+          <ng-template #loadingDetailLabel>
+            <p>Walk-in sale reference</p>
+          </ng-template>
+        </div>
+        <div class="detail-modal-actions">
+          <button
+            *ngIf="selectedSaleDetail && canManageTransactions"
+            mat-stroked-button
+            type="button"
+            class="danger-action"
+            (click)="deleteSelectedSaleFromDetail()"
+            [disabled]="clearingSales || deletingTransactionKey === ('sale:' + selectedSaleDetail.id)"
+          >
+            {{ deletingTransactionKey === ('sale:' + selectedSaleDetail.id) ? 'Deleting...' : 'Delete Sale' }}
+          </button>
+          <button mat-stroked-button type="button" (click)="closeReferenceDetails()">Close</button>
+        </div>
+      </div>
+
+      <div class="detail-state" *ngIf="loadingDetail || detailErrorMessage">
+        <p class="state" *ngIf="loadingDetail">Loading transaction details...</p>
+        <p class="state error" *ngIf="!loadingDetail && detailErrorMessage">{{ detailErrorMessage }}</p>
+        <button mat-stroked-button type="button" *ngIf="!loadingDetail && detailErrorMessage" (click)="retryReferenceDetails()">
+          Retry
+        </button>
+      </div>
+
+      <div class="detail-content" *ngIf="!loadingDetail && selectedSaleDetail as detail">
+        <div class="detail-grid">
+          <div class="detail-card">
+            <span class="detail-label">Patient ID</span>
+            <strong>{{ detail.patientId || '-' }}</strong>
+          </div>
+          <div class="detail-card">
+            <span class="detail-label">Patient Name</span>
+            <strong>{{ detail.patientName || 'Walk-in patient' }}</strong>
+          </div>
+          <div class="detail-card">
+            <span class="detail-label">Payment</span>
+            <strong>{{ detail.paymentMethod | titlecase }}</strong>
+          </div>
+          <div class="detail-card">
+            <span class="detail-label">Status</span>
+            <strong>{{ detail.status | titlecase }}</strong>
+          </div>
+          <div class="detail-card">
+            <span class="detail-label">Amount Paid</span>
+            <strong>{{ detail.amountPaid | currency : 'PHP' : 'symbol' : '1.2-2' }}</strong>
+          </div>
+          <div class="detail-card">
+            <span class="detail-label">Change</span>
+            <strong>{{ detail.changeAmount | currency : 'PHP' : 'symbol' : '1.2-2' }}</strong>
+          </div>
+        </div>
+
+        <div class="detail-meta">
+          <p><strong>Processed by:</strong> {{ detail.createdBy?.fullName || detail.createdBy?.username || 'System' }}</p>
+          <p *ngIf="detail.notes"><strong>Notes:</strong> {{ detail.notes }}</p>
+        </div>
+
+        <div class="detail-table-wrap">
+          <table class="detail-table">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>SKU</th>
+                <th>Location</th>
+                <th>Qty</th>
+                <th>Unit Price</th>
+                <th>Line Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of detail.items">
+                <td>{{ item.productName }}</td>
+                <td>{{ item.sku }}</td>
+                <td>{{ item.locationName || 'General' }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>{{ item.unitPrice | currency : 'PHP' : 'symbol' : '1.2-2' }}</td>
+                <td>{{ item.lineTotal | currency : 'PHP' : 'symbol' : '1.2-2' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="detail-total">
+          <span>Total Amount</span>
+          <strong>{{ detail.totalAmount | currency : 'PHP' : 'symbol' : '1.2-2' }}</strong>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="confirm-modal-backdrop" *ngIf="confirmModalOpen" (click)="closeConfirmationModal()">
+    <section class="confirm-modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-label="Confirm transaction action">
+      <div class="confirm-modal-header">
+        <div>
+          <h2>{{ confirmModalTitle }}</h2>
+          <p>{{ confirmModalMessage }}</p>
+        </div>
+        <button mat-stroked-button type="button" (click)="closeConfirmationModal()">Cancel</button>
+      </div>
+
+      <div class="confirm-field" *ngIf="confirmTypedRequiredText">
+        <label for="confirmTypedValue">
+          Type <strong>{{ confirmTypedRequiredText }}</strong> to continue.
+        </label>
+        <input
+          id="confirmTypedValue"
+          type="text"
+          [value]="confirmTypedValue"
+          (input)="confirmTypedValue = $any($event.target).value"
+          [attr.placeholder]="confirmTypedRequiredText"
+        />
+      </div>
+
+      <div class="confirm-detail-grid" *ngIf="confirmDetailRows.length > 0">
+        <div class="confirm-detail-card" *ngFor="let detail of confirmDetailRows">
+          <span>{{ detail.label }}</span>
+          <strong>{{ detail.value }}</strong>
+        </div>
+      </div>
+
+      <div class="confirm-actions">
+        <button mat-stroked-button type="button" (click)="closeConfirmationModal()">Keep Records</button>
+        <button
+          mat-flat-button
+          color="warn"
+          type="button"
+          class="danger-action filled-danger"
+          (click)="submitConfirmationModal()"
+          [disabled]="isConfirmActionDisabled"
+        >
+          {{ confirmModalConfirmLabel }}
+        </button>
+      </div>
+    </section>
+  </div>
 </div>

@@ -1,4 +1,4 @@
-<div class="product-form-page">
+<div class="product-form-page" [class.drawer-mode]="drawerMode">
   <header class="form-header">
     <div>
       <h1>{{ isEditMode ? 'Edit Inventory Item' : 'Add Inventory Item' }}</h1>
@@ -8,8 +8,13 @@
   </header>
 
   <mat-card class="form-card">
-    <div class="state" *ngIf="loading">Loading inventory item details...</div>
-    <div class="state error" *ngIf="!loading && errorMessage">{{ errorMessage }}</div>
+    <div class="state-panel" *ngIf="loading || errorMessage">
+      <div class="state" *ngIf="loading">{{ loadingMessage }}</div>
+      <div class="state error" *ngIf="!loading && errorMessage">{{ errorMessage }}</div>
+      <button mat-stroked-button type="button" class="retry-btn" (click)="retryLoadFormData()" [disabled]="loading">
+        Retry
+      </button>
+    </div>
 
     <form *ngIf="!loading" [formGroup]="form" (ngSubmit)="onSubmit()" class="product-form">
       <mat-form-field appearance="outline">
@@ -32,7 +37,9 @@
 
       <mat-form-field appearance="outline">
         <mat-label>Unit</mat-label>
-        <input matInput formControlName="unit" placeholder="box, pack, unit" />
+        <select matNativeControl formControlName="unit">
+          <option *ngFor="let unitOption of unitOptions" [value]="unitOption">{{ unitOption }}</option>
+        </select>
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="full-row">
@@ -42,6 +49,7 @@
 
       <mat-form-field appearance="outline">
         <mat-label>Unit Cost</mat-label>
+        <span matPrefix>₱&nbsp;</span>
         <input matInput type="number" step="0.01" min="0" formControlName="price" />
       </mat-form-field>
 
@@ -72,6 +80,15 @@
       </mat-form-field>
 
       <div class="form-actions">
+        <button
+          *ngIf="showEmbeddedCancel"
+          mat-stroked-button
+          type="button"
+          (click)="requestCancel()"
+          [disabled]="saving"
+        >
+          Cancel
+        </button>
         <button *ngIf="!embeddedMode" mat-stroked-button type="button" routerLink="/products">Cancel</button>
         <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || saving">
           {{ saving ? 'Saving...' : isEditMode ? 'Update Item' : 'Create Item' }}

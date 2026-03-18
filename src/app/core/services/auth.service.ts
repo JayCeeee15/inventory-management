@@ -5,13 +5,14 @@ import { Router } from '@angular/router';
 import { isPlatformBrowser } from '@angular/common';
 import { environment } from '../../../environments/environment';
 
-export type UserRole = 'admin' | 'employee';
+export type UserRole = 'admin' | 'employee' | 'customer';
 
 export interface User {
   id: number;
   username: string;
   fullName: string;
   email: string;
+  avatarUrl?: string | null;
   token: string;
   role: UserRole;
 }
@@ -32,6 +33,8 @@ export interface ProfileUpdateInput {
   fullName: string;
   email: string;
   username: string;
+  avatarFile?: File | null;
+  removeAvatar?: boolean;
 }
 
 interface AuthResponseUser {
@@ -39,6 +42,7 @@ interface AuthResponseUser {
   username: string;
   fullName: string;
   email: string;
+  avatarUrl?: string | null;
   role: UserRole;
 }
 
@@ -66,6 +70,17 @@ interface FallbackUser {
   password: string;
   token: string;
   role: UserRole;
+}
+
+function normalizeUserRole(role: unknown): UserRole {
+  const normalized = String(role || '').toLowerCase();
+  if (normalized === 'admin') {
+    return 'admin';
+  }
+  if (normalized === 'customer') {
+    return 'customer';
+  }
+  return 'employee';
 }
 
 @Injectable({
@@ -145,6 +160,10 @@ export class AuthService {
   }
 
   signupEmployee(data: SignupData): Observable<User> {
+    return this.signupCustomer(data);
+  }
+
+  signupCustomer(data: SignupData): Observable<User> {
     if (!this.isBrowser) {
       return throwError(() => new Error('AUTH_UNAVAILABLE'));
     }
@@ -168,12 +187,21 @@ export class AuthService {
       return throwError(() => new Error('AUTH_UNAVAILABLE'));
     }
 
+    const formData = new FormData();
+    formData.set('fullName', data.fullName.trim());
+    formData.set('email', data.email.trim().toLowerCase());
+    formData.set('username', data.username.trim());
+
+    if (data.removeAvatar) {
+      formData.set('removeAvatar', 'true');
+    }
+
+    if (data.avatarFile) {
+      formData.set('avatar', data.avatarFile);
+    }
+
     return this.http
-      .put<AuthApiResponse>(`${this.AUTH_API_URL}/profile`, {
-        fullName: data.fullName.trim(),
-        email: data.email.trim().toLowerCase(),
-        username: data.username.trim()
-      })
+      .put<AuthApiResponse>(`${this.AUTH_API_URL}/profile`, formData)
       .pipe(
         timeout(7000),
         map(response => this.applyAuthResponse(response)),
@@ -194,6 +222,14 @@ export class AuthService {
           }
 
           if (error.status === 400) {
+            if (apiCode === 'INVALID_AVATAR_FILE') {
+              return throwError(() => new Error('INVALID_AVATAR_FILE'));
+            }
+
+            if (apiCode === 'AVATAR_TOO_LARGE') {
+              return throwError(() => new Error('AVATAR_TOO_LARGE'));
+            }
+
             return throwError(() => new Error('INVALID_PROFILE'));
           }
 
@@ -243,7 +279,15 @@ export class AuthService {
       return '/login';
     }
 
-    return user.role === 'admin' ? '/dashboard' : '/employee-dashboard';
+    if (user.role === 'admin') {
+      return '/dashboard';
+    }
+
+    if (user.role === 'employee') {
+      return '/employee-dashboard';
+    }
+
+    return '/';
   }
 
   getCurrentDashboardRoute(): string {
@@ -260,8 +304,9 @@ export class AuthService {
       username: String(response.user.username),
       fullName: String(response.user.fullName || response.user.username || '').trim(),
       email: String(response.user.email || '').trim().toLowerCase(),
+      avatarUrl: response.user.avatarUrl ? String(response.user.avatarUrl) : null,
       token: String(response.accessToken),
-      role: response.user.role === 'admin' ? 'admin' : 'employee'
+      role: normalizeUserRole(response.user.role)
     };
 
     this.setSession(user);
@@ -299,8 +344,9 @@ export class AuthService {
         username: String(parsedUser.username ?? ''),
         fullName: String(parsedUser.fullName ?? parsedUser.username ?? '').trim(),
         email: String(parsedUser.email ?? '').trim().toLowerCase(),
+        avatarUrl: parsedUser.avatarUrl ? String(parsedUser.avatarUrl) : null,
         token: String(token),
-        role: parsedUser.role === 'admin' ? 'admin' : 'employee'
+        role: normalizeUserRole(parsedUser.role)
       };
 
       if (user.id && user.username && user.token) {

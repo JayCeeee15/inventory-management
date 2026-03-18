@@ -6,6 +6,7 @@
   min-height: 100vh;
   padding: 24px;
   background: linear-gradient(180deg, #fffefe 0%, #fff4f6 100%);
+  position: relative;
 }
 
 .page-header {
@@ -108,8 +109,71 @@
   color: #7a3b44;
 }
 
+.state.success {
+  color: #15803d;
+}
+
 .state.error {
   color: #b91c1c;
+}
+
+.state-panel {
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.state-panel .state {
+  padding: 0;
+}
+
+.retry-btn {
+  min-width: auto;
+  height: 30px;
+  padding: 0 10px;
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) min(760px, 100%);
+}
+
+.drawer-backdrop {
+  border: 0;
+  background: rgba(15, 23, 42, 0.36);
+  cursor: pointer;
+}
+
+.drawer-panel {
+  height: 100vh;
+  overflow-y: auto;
+  background: linear-gradient(180deg, #fffefe 0%, #fff7f8 100%);
+  border-left: 1px solid #f0c4cb;
+  box-shadow: -18px 0 36px rgba(127, 29, 45, 0.18);
+  animation: drawer-slide-in 0.18s ease-out;
+}
+
+.drawer-panel app-product-form {
+  display: block;
+}
+
+@keyframes drawer-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @media (max-width: 900px) {
@@ -124,5 +188,13 @@
   .actions button {
     margin-left: 0;
     margin-right: 8px;
+  }
+
+  .drawer-overlay {
+    grid-template-columns: 1fr;
+  }
+
+  .drawer-panel {
+    width: min(100%, 100vw);
   }
 }

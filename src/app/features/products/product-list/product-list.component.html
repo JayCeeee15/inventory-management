@@ -2,12 +2,18 @@
   <header class="page-header">
     <div>
       <h1>Item Master</h1>
-      <p>Manage medicines, consumables, and equipment stock records.</p>
+      <p>
+        {{
+          canManage
+            ? 'Manage medicines, consumables, and equipment stock records.'
+            : 'Review medicines, consumables, and equipment stock records.'
+        }}
+      </p>
     </div>
-    <button *ngIf="embeddedMode" mat-flat-button color="primary" type="button" (click)="requestCreate()">
+    <button *ngIf="embeddedMode && canManage" mat-flat-button color="primary" type="button" (click)="requestCreate()">
       Add Item
     </button>
-    <button *ngIf="!embeddedMode" mat-flat-button color="primary" routerLink="/products/new">Add Item</button>
+    <button *ngIf="!embeddedMode && canManage" mat-flat-button color="primary" routerLink="/products/new">Add Item</button>
   </header>
 
   <mat-card class="filters-card">
@@ -35,8 +41,21 @@
   </mat-card>
 
   <mat-card class="table-card">
-    <div class="state" *ngIf="loading">Loading products...</div>
-    <div class="state error" *ngIf="!loading && errorMessage">{{ errorMessage }}</div>
+    <div class="state-panel" *ngIf="loading || errorMessage || successMessage">
+      <div class="state" *ngIf="loading">{{ loadingMessage }}</div>
+      <div class="state success" *ngIf="!loading && successMessage">{{ successMessage }}</div>
+      <div class="state error" *ngIf="!loading && errorMessage">{{ errorMessage }}</div>
+      <button
+        *ngIf="loading || errorMessage"
+        mat-stroked-button
+        type="button"
+        class="retry-btn"
+        (click)="loadProducts()"
+        [disabled]="loading"
+      >
+        Retry
+      </button>
+    </div>
 
     <div class="table-wrap" *ngIf="!loading && !errorMessage">
       <table class="products-table" *ngIf="filteredProducts.length > 0; else emptyState">
@@ -44,12 +63,13 @@
           <tr>
             <th>Item</th>
             <th>Category</th>
+            <th>Unit</th>
             <th>On Hand</th>
             <th>Reserved</th>
             <th>Available</th>
             <th>Reorder</th>
             <th>Unit Cost</th>
-            <th class="actions">Actions</th>
+            <th *ngIf="canManage" class="actions">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -59,14 +79,15 @@
               <div>{{ product.sku }}</div>
             </td>
             <td>{{ product.categoryName }}</td>
+            <td>{{ product.unit }}</td>
             <td>{{ product.qtyOnHand }}</td>
             <td>{{ product.qtyReserved }}</td>
             <td>
               <span class="qty" [class.low]="isLowStock(product)">{{ product.qtyAvailable }}</span>
             </td>
             <td>{{ product.reorderLevel }}</td>
-            <td>{{ product.price | currency }}</td>
-            <td class="actions">
+            <td>{{ product.price | currency : 'PHP' : 'symbol' : '1.2-2' }}</td>
+            <td *ngIf="canManage" class="actions">
               <button
                 *ngIf="embeddedMode"
                 mat-stroked-button
@@ -90,4 +111,25 @@
       </ng-template>
     </div>
   </mat-card>
+
+  <div class="drawer-overlay" *ngIf="embeddedMode && useDrawerEditor && editorDrawerOpen">
+    <button
+      type="button"
+      class="drawer-backdrop"
+      (click)="closeEditorDrawer()"
+      aria-label="Close inventory item form"
+    ></button>
+
+    <aside class="drawer-panel" role="dialog" aria-modal="true" aria-label="Inventory item editor">
+      <app-product-form
+        [embeddedMode]="true"
+        [drawerMode]="true"
+        [showEmbeddedCancel]="true"
+        [editProductId]="editorMode === 'edit' ? selectedProductId : null"
+        [reloadToken]="editorReloadToken"
+        (formCompleted)="handleEditorCompleted($event)"
+        (cancelRequested)="closeEditorDrawer()"
+      ></app-product-form>
+    </aside>
+  </div>
 </div>

@@ -1,37 +1,51 @@
 <div class="staff-shell" [class.nav-collapsed]="!sideNavOpen">
   <aside class="side-nav">
     <div class="brand">
-      <div class="brand-left">
-        <div class="brand-mark">H+</div>
-        <div class="brand-copy">
-          <h2>Inventory Staff</h2>
-          <p>Hospital Operations</p>
+      <div class="brand-mark" [class.fallback]="!logoImageVisible">
+        <img
+          *ngIf="logoImageVisible"
+          src="/images/system-logo.svg"
+          alt="Hospital inventory logo"
+          (error)="onLogoImageError()"
+        />
+        <span *ngIf="!logoImageVisible">H+</span>
+      </div>
+      <div class="brand-copy">
+        <img
+          *ngIf="titleImageVisible"
+          class="brand-title-image"
+          src="/images/system-title.svg"
+          alt="Hospital inventory title"
+          (error)="onTitleImageError()"
+        />
+        <div class="brand-title-fallback" *ngIf="!titleImageVisible">
+          <h2>Hospital Inventory</h2>
+          <p>Staff Operations Desk</p>
         </div>
       </div>
     </div>
 
-    <nav class="nav-links">
-      <button
-        type="button"
-        class="nav-link-btn"
-        *ngFor="let item of navItems"
-        (click)="switchSection(item.section)"
-        [class.active]="activeSection === item.section"
-      >
-        <span class="nav-icon material-symbols-outlined">{{ item.icon }}</span>
-        <span class="nav-copy">
-          <strong>{{ item.label }}</strong>
-          <span>{{ item.helper }}</span>
-        </span>
-      </button>
-    </nav>
-
-    <div class="side-profile">
-      <div class="avatar">{{ avatarInitials }}</div>
-      <div class="side-profile-meta">
-        <h3>{{ displayName }}</h3>
-        <p>{{ roleLabel }}</p>
-      </div>
+    <div class="nav-groups">
+      <section class="nav-group" *ngFor="let group of navGroups">
+        <p class="nav-section-label">{{ group.title }}</p>
+        <nav class="nav-links">
+          <button
+            type="button"
+            class="nav-link-btn"
+            *ngFor="let item of group.items"
+            (click)="switchSection(item.section)"
+            [class.active]="activeSection === item.section"
+            [attr.title]="!sideNavOpen ? item.label : null"
+            [attr.aria-label]="item.label"
+          >
+            <span class="nav-icon material-symbols-outlined">{{ item.icon }}</span>
+            <span class="nav-copy">
+              <strong>{{ item.label }}</strong>
+              <span>{{ item.helper }}</span>
+            </span>
+          </button>
+        </nav>
+      </section>
     </div>
   </aside>
 
@@ -43,20 +57,32 @@
 
   <main class="main-pane">
     <header class="top-header">
-      <div class="title-block">
-        <h1>Staff Dashboard</h1>
-        <p>{{ todayLabel }}</p>
+      <div class="header-left">
+        <button class="header-brand minimal" type="button" (click)="refreshDashboardData()" aria-label="Refresh dashboard data">
+          <span class="header-brand-logo" [class.fallback]="!logoImageVisible">
+            <img
+              *ngIf="logoImageVisible"
+              src="/images/system-logo.svg"
+              alt="Hospital inventory logo"
+              (error)="onLogoImageError()"
+            />
+            <span *ngIf="!logoImageVisible">H+</span>
+          </span>
+        </button>
+        <p class="header-date minimal">{{ todayLabel }}</p>
       </div>
 
       <div class="header-right">
-        <button class="profile-chip" type="button" (click)="openProfileEditor()" aria-label="Edit profile">
-          <div class="profile-avatar">{{ avatarInitials }}</div>
-          <div>
+        <button class="profile-chip profile-chip-minimal" type="button" (click)="openProfileEditor()" aria-label="Open edit profile">
+          <div class="profile-avatar" [class.has-image]="!!avatarUrl">
+            <img *ngIf="avatarUrl" [src]="avatarUrl" alt="Profile photo" class="avatar-image" />
+            <ng-container *ngIf="!avatarUrl">{{ avatarInitials }}</ng-container>
+          </div>
+          <div class="profile-chip-copy">
             <strong>{{ displayName }}</strong>
-            <span>{{ roleLabel }} | Edit Profile</span>
           </div>
         </button>
-        <button mat-stroked-button color="warn" (click)="logout()">Logout</button>
+        <button class="header-action logout-btn" type="button" (click)="logout()">Logout</button>
       </div>
     </header>
 
@@ -67,12 +93,52 @@
           <button type="button" class="close-btn" (click)="closeProfileEditor()">Close</button>
         </div>
 
+        <input
+          #avatarFileInput
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          hidden
+          (change)="onProfileImageSelected($event)"
+        />
+
         <div class="profile-meta">
-          <div class="profile-avatar large">{{ avatarInitials }}</div>
+          <button
+            type="button"
+            class="profile-avatar-trigger"
+            (click)="avatarFileInput.click()"
+            [disabled]="profileSaving"
+            aria-label="Change profile photo"
+          >
+            <div class="profile-avatar large editable" [class.has-image]="!!profilePreviewUrl">
+              <img *ngIf="profilePreviewUrl" [src]="profilePreviewUrl" alt="Profile photo preview" class="avatar-image" />
+              <ng-container *ngIf="!profilePreviewUrl">{{ avatarInitials }}</ng-container>
+            </div>
+            <span class="avatar-edit-badge material-symbols-outlined" aria-hidden="true">edit</span>
+          </button>
           <div>
             <p><strong>Role:</strong> {{ roleLabel }}</p>
             <p><strong>Username:</strong> {{ accountUsername }}</p>
             <p><strong>Email:</strong> {{ accountEmail || 'Not set' }}</p>
+          </div>
+        </div>
+
+        <div class="profile-photo-panel">
+          <div>
+            <p class="photo-title">Profile Photo</p>
+            <p class="photo-hint">Click the avatar to upload or change your photo. JPG, PNG, or WebP only. Maximum size: 2 MB.</p>
+            <p class="photo-file" *ngIf="profileSelectedImageName">{{ profileSelectedImageName }}</p>
+          </div>
+
+          <div class="photo-actions">
+            <button
+              *ngIf="profilePreviewUrl"
+              type="button"
+              class="module-btn secondary"
+              (click)="removeProfilePhoto()"
+              [disabled]="profileSaving"
+            >
+              Remove Photo
+            </button>
           </div>
         </div>
 
@@ -86,12 +152,13 @@
           <label for="username">Username</label>
           <input id="username" type="text" formControlName="username" />
 
+          <p class="form-error" *ngIf="profileImageErrorMessage">{{ profileImageErrorMessage }}</p>
           <p class="form-error" *ngIf="profileErrorMessage">{{ profileErrorMessage }}</p>
           <p class="form-success" *ngIf="profileSuccessMessage">{{ profileSuccessMessage }}</p>
 
           <div class="profile-actions">
-            <button mat-stroked-button type="button" (click)="closeProfileEditor()" [disabled]="profileSaving">Cancel</button>
-            <button mat-flat-button color="primary" type="submit" [disabled]="profileSaving">
+            <button type="button" class="module-btn secondary" (click)="closeProfileEditor()" [disabled]="profileSaving">Cancel</button>
+            <button type="submit" class="module-btn primary" [disabled]="profileSaving">
               {{ profileSaving ? 'Saving...' : 'Save Changes' }}
             </button>
           </div>
@@ -99,100 +166,316 @@
       </div>
     </section>
 
-    <p class="state" *ngIf="loading">Loading dashboard data...</p>
-    <p class="state error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+    <div class="state-block" *ngIf="loading || errorMessage">
+      <p class="state" *ngIf="loading">Loading dashboard data...</p>
+      <p class="state error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+      <button type="button" class="retry-btn" (click)="retryDashboardLoad()">Retry</button>
+    </div>
 
     <ng-container [ngSwitch]="activeSection">
       <ng-container *ngSwitchCase="'overview'">
-        <section class="kpi-grid">
-          <mat-card class="kpi-card">
-            <div class="kpi-icon">PR</div>
-            <div>
-              <h3>Total Products</h3>
-              <p class="kpi-value">{{ totalProducts }}</p>
-              <span>active items tracked</span>
-            </div>
-          </mat-card>
+        <section class="hero-panel">
+          <div class="hero-copy">
+            <p class="section-tag">Daily Command View</p>
+            <h1>Process hospital stock activity from one clean, focused operations dashboard.</h1>
+            <p>
+              Walk-in sales, patient issues, inventory records, and recent movement visibility now sit in a single
+              workspace with faster switching and cleaner visual hierarchy.
+            </p>
+          </div>
 
-          <mat-card class="kpi-card">
-            <div class="kpi-icon warning">LS</div>
-            <div>
-              <h3>Low Stock Alerts</h3>
-              <p class="kpi-value">{{ lowStockItems }}</p>
-              <span>items below reorder level</span>
-            </div>
-          </mat-card>
-
-          <mat-card class="kpi-card">
-            <div class="kpi-icon">MV</div>
-            <div>
-              <h3>Movements (7 Days)</h3>
-              <p class="kpi-value">{{ weeklyMovements }}</p>
-              <span>recent stock transactions</span>
-            </div>
-          </mat-card>
-
-          <mat-card class="kpi-card">
-            <div class="kpi-icon">CT</div>
-            <div>
-              <h3>Categories</h3>
-              <p class="kpi-value">{{ totalCategories }}</p>
-              <span>product group definitions</span>
-            </div>
-          </mat-card>
+          <div class="hero-stats">
+            <article class="hero-stat">
+              <span>Stock Left</span>
+              <strong>{{ stockLeft | number }}</strong>
+              <small>Units on hand</small>
+            </article>
+            <article class="hero-stat accent-warn">
+              <span>Low Stock</span>
+              <strong>{{ lowStockItems }}</strong>
+              <small>Needs reorder review</small>
+            </article>
+            <article class="hero-stat accent-soft">
+              <span>Sales Today</span>
+              <strong>{{ salesToday }}</strong>
+              <small>Completed walk-in sales</small>
+            </article>
+          </div>
         </section>
 
-        <section class="content-grid">
-          <mat-card class="panel-card">
-            <h2>Recent Stock Activities</h2>
-            <ul *ngIf="recentMovements.length > 0; else emptyMovements">
-              <li *ngFor="let movement of recentMovements; trackBy: trackByMovementId">
-                <div class="entry-head">
-                  <strong>{{ movement.productName }}</strong>
-                  <span class="type">{{ formatMovementType(movement.movementType) }}</span>
+        <section class="metrics-grid compact-metrics">
+          <article class="metric-card">
+            <p class="metric-label">Products</p>
+            <p class="metric-value">{{ totalProducts }}</p>
+            <p class="metric-note">Tracked records</p>
+          </article>
+          <article class="metric-card">
+            <p class="metric-label">Out of Stock</p>
+            <p class="metric-value">{{ outOfStockItems }}</p>
+            <p class="metric-note">Items with zero balance</p>
+          </article>
+          <article class="metric-card">
+            <p class="metric-label">Transactions Today</p>
+            <p class="metric-value">{{ transactionsToday }}</p>
+            <p class="metric-note">Movement rows today</p>
+          </article>
+          <article class="metric-card">
+            <p class="metric-label">Movements (7 Days)</p>
+            <p class="metric-value">{{ weeklyMovements }}</p>
+            <p class="metric-note">Recent movement count</p>
+          </article>
+        </section>
+
+        <section class="overview-section">
+          <div class="section-heading">
+            <div>
+              <p class="section-tag">Modules</p>
+              <h2>Daily Work Modules</h2>
+            </div>
+            <p>Quick actions open the same embedded tools you already use, without sending you to a different page.</p>
+          </div>
+
+          <div class="module-grid four-up">
+            <article class="module-card" *ngFor="let module of overviewModules">
+              <div class="module-card-head">
+                <span class="module-icon material-symbols-outlined">{{ module.icon }}</span>
+                <span class="module-eyebrow">{{ module.eyebrow }}</span>
+              </div>
+              <div class="module-copy">
+                <h3>{{ module.title }}</h3>
+                <p>{{ module.description }}</p>
+              </div>
+              <div class="module-actions">
+                <button type="button" class="module-btn primary" (click)="switchSection(module.primarySection)">
+                  {{ module.primaryLabel }}
+                </button>
+                <button type="button" class="module-btn secondary" (click)="switchSection(module.secondarySection)">
+                  {{ module.secondaryLabel }}
+                </button>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="overview-grid split-panels">
+          <article class="surface-card graph-surface">
+            <div class="surface-head">
+              <div>
+                <p class="section-tag">Stock Snapshot</p>
+                <h2>Products and Stocks Graph</h2>
+                <p class="surface-note">Last synced: {{ graphLastSyncedLabel }}</p>
+              </div>
+            </div>
+
+            <p class="graph-helper">Live stock-on-hand by top products</p>
+            <p class="graph-error" *ngIf="!loading && graphErrorMessage">{{ graphErrorMessage }}</p>
+
+            <div class="stock-graph" *ngIf="stockGraphBars.length > 0 && !loading; else stockGraphFallback">
+              <div class="bar-row" *ngFor="let bar of stockGraphBars">
+                <div class="bar-meta">
+                  <strong>{{ bar.name }}</strong>
+                  <span>{{ bar.category }}</span>
                 </div>
-                <div class="entry-meta">
-                  <span>Qty: {{ movement.quantity }}</span>
-                  <span>Location: {{ movement.locationName || 'General' }}</span>
-                  <span>{{ formatRelativeTime(movement.createdAt) }}</span>
+                <div class="bar-track">
+                  <span class="bar-fill" [style.width.%]="bar.percent"></span>
+                </div>
+                <span class="bar-value">{{ bar.stock }}</span>
+              </div>
+            </div>
+
+            <ng-template #stockGraphFallback>
+              <p class="empty" *ngIf="loading">Loading stock graph...</p>
+              <p class="empty" *ngIf="!loading && !graphErrorMessage">No product stock data available.</p>
+            </ng-template>
+          </article>
+
+          <article class="surface-card calendar-surface">
+            <div class="surface-head">
+              <div>
+                <p class="section-tag">Calendar</p>
+                <h2>Stock Movement Calendar</h2>
+              </div>
+              <div class="calendar-nav">
+                <button type="button" class="module-btn secondary" (click)="prevMonth()">Prev</button>
+                <span class="month-label">{{ monthLabel }}</span>
+                <button type="button" class="module-btn secondary" (click)="nextMonth()">Next</button>
+              </div>
+            </div>
+
+            <div class="range-switch">
+              <button type="button" [class.active]="selectedRange === 'day'" (click)="setRange('day')">Day</button>
+              <button type="button" [class.active]="selectedRange === 'month'" (click)="setRange('month')">Month</button>
+              <button type="button" [class.active]="selectedRange === 'year'" (click)="setRange('year')">Year</button>
+            </div>
+
+            <div class="range-summary">
+              <p class="range-label">{{ rangeLabel }}</p>
+              <p class="range-total">{{ rangeStockTotal }} units moved</p>
+              <p class="range-sub">{{ rangeProductCount }} products with movement</p>
+              <div class="range-products" *ngIf="rangeProductSummary.length > 0">
+                <span class="range-product" *ngFor="let item of rangeProductSummary | slice:0:4">
+                  {{ item.name }} ({{ item.total }})
+                </span>
+              </div>
+            </div>
+
+            <div class="calendar-grid weekday-row">
+              <span *ngFor="let day of weekdayHeaders">{{ day }}</span>
+            </div>
+
+            <div class="calendar-grid" *ngFor="let week of calendarWeeks">
+              <button
+                *ngFor="let day of week"
+                type="button"
+                class="calendar-day"
+                [class.muted]="!day.inCurrentMonth"
+                [class.today]="day.isToday"
+                (click)="selectDay(day)"
+              >
+                <span class="day-number">{{ day.value }}</span>
+                <span class="day-stock">{{ day.stockTotal }} stk</span>
+                <div class="day-products" *ngIf="day.topItems.length > 0">
+                  <span class="day-product" *ngFor="let item of day.topItems">{{ item.name }}</span>
+                </div>
+              </button>
+            </div>
+          </article>
+        </section>
+
+        <section class="overview-grid bottom-overview-grid">
+          <article class="surface-card activity-surface">
+            <div class="surface-head">
+              <div>
+                <p class="section-tag">Activity</p>
+                <h2>Latest Stock Activity</h2>
+              </div>
+            </div>
+
+            <ul class="activity-list" *ngIf="recentMovements.length > 0; else emptyMovements">
+              <li class="activity-item" *ngFor="let movement of recentMovements; trackBy: trackByMovementId">
+                <span class="activity-dot"></span>
+                <div class="activity-copy">
+                  <strong>{{ movement.productName }}</strong>
+                  <p>{{ movement.locationName || 'General location' }}</p>
+                </div>
+                <div class="activity-meta">
+                  <span class="table-pill">{{ formatMovementType(movement.movementType) }}</span>
+                  <small>{{ formatRelativeTime(movement.createdAt) }}</small>
                 </div>
               </li>
             </ul>
             <ng-template #emptyMovements>
               <p class="empty">No recent movements available.</p>
             </ng-template>
-          </mat-card>
+          </article>
 
-          <mat-card class="panel-card quick-panel">
-            <h2>Quick Actions</h2>
-            <div class="quick-actions">
-              <button type="button" *ngFor="let action of quickActions" (click)="switchSection(action.section)">
-                <strong>{{ action.title }}</strong>
-                <span>{{ action.subtitle }}</span>
-              </button>
+          <article class="surface-card table-surface">
+            <div class="surface-head table-head">
+              <div>
+                <p class="section-tag">Ledger</p>
+                <h2>Latest Transactions</h2>
+                <p class="surface-note">Recent stock transactions from the live movement ledger.</p>
+              </div>
+              <label class="table-search">
+                <span class="material-symbols-outlined">search</span>
+                <input
+                  type="search"
+                  [value]="overviewSearch"
+                  (input)="overviewSearch = $any($event.target).value"
+                  placeholder="Search product, patient, location, or reference"
+                />
+              </label>
             </div>
-          </mat-card>
+
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Module</th>
+                    <th>Product</th>
+                    <th>Patient</th>
+                    <th>Location</th>
+                    <th>Qty</th>
+                    <th>Reference</th>
+                    <th>User</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of filteredOverviewTransactions; trackBy: trackByTransactionId">
+                    <td>{{ row.dateLabel }}</td>
+                    <td><span class="table-pill">{{ row.moduleLabel }}</span></td>
+                    <td>{{ row.product }}</td>
+                    <td>{{ row.patient }}</td>
+                    <td>{{ row.location }}</td>
+                    <td>{{ row.quantityLabel }}</td>
+                    <td>{{ row.reference }}</td>
+                    <td>{{ row.user }}</td>
+                  </tr>
+                  <tr *ngIf="filteredOverviewTransactions.length === 0">
+                    <td colspan="8" class="empty-row">No transactions match the current search.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
         </section>
       </ng-container>
 
       <section class="embedded-section" *ngSwitchCase="'walkin'">
-        <app-walk-in-sale [embeddedMode]="true"></app-walk-in-sale>
+        <app-walk-in-sale
+          [embeddedMode]="true"
+          [reloadToken]="walkInReloadToken"
+          (salePosted)="onWalkInSalePosted($event)"
+        ></app-walk-in-sale>
       </section>
 
       <section class="embedded-section" *ngSwitchCase="'issue'">
-        <app-patient-issue [embeddedMode]="true"></app-patient-issue>
+        <app-patient-issue
+          [embeddedMode]="true"
+          [reloadToken]="patientIssueReloadToken"
+          (issuePosted)="onPatientIssuePosted($event)"
+        ></app-patient-issue>
       </section>
 
       <section class="embedded-section" *ngSwitchCase="'history'">
-        <app-transaction-history [embeddedMode]="true"></app-transaction-history>
+        <app-transaction-history [embeddedMode]="true" [reloadToken]="historyReloadToken"></app-transaction-history>
       </section>
 
       <section class="embedded-section" *ngSwitchCase="'products'">
-        <app-product-list></app-product-list>
+        <app-product-list
+          [embeddedMode]="true"
+          [useDrawerEditor]="true"
+          [canManage]="false"
+          [reloadToken]="productListReloadToken"
+        ></app-product-list>
       </section>
 
       <section class="embedded-section" *ngSwitchCase="'categories'">
-        <app-category-list></app-category-list>
+        <app-category-list
+          [embeddedMode]="true"
+          [canManage]="false"
+          [reloadToken]="categoryListReloadToken"
+          (createRequested)="openCategoryCreate()"
+          (editRequested)="openCategoryEdit($event)"
+        ></app-category-list>
+      </section>
+
+      <section class="embedded-section" *ngSwitchCase="'categoryCreate'">
+        <app-category-form
+          [embeddedMode]="true"
+          [reloadToken]="categoryCreateReloadToken"
+          (formCompleted)="onCategoryFormCompleted()"
+        ></app-category-form>
+      </section>
+
+      <section class="embedded-section" *ngSwitchCase="'categoryEdit'">
+        <app-category-form
+          [embeddedMode]="true"
+          [editCategoryId]="selectedCategoryId"
+          [reloadToken]="categoryEditReloadToken"
+          (formCompleted)="onCategoryFormCompleted()"
+        ></app-category-form>
       </section>
     </ng-container>
   </main>

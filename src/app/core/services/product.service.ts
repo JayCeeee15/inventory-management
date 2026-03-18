@@ -21,6 +21,9 @@ interface ProductResponse {
   product: unknown;
 }
 
+const PRODUCT_UNIT_OPTIONS = ['Box', 'Pieces', 'Packs'] as const;
+type ProductUnitOption = (typeof PRODUCT_UNIT_OPTIONS)[number];
+
 @Injectable({
   providedIn: 'root'
 })
@@ -158,7 +161,7 @@ export class ProductService {
       sku: product.sku.trim(),
       name: product.name.trim(),
       description: product.description?.trim() || '',
-      unit: product.unit.trim() || 'unit',
+      unit: this.normalizeUnit(product.unit),
       price: product.price,
       reorderLevel: product.reorderLevel,
       controlled: product.controlled,
@@ -172,7 +175,7 @@ export class ProductService {
       sku: product.sku.trim(),
       name: product.name.trim(),
       description: product.description?.trim() || '',
-      unit: product.unit.trim() || 'unit',
+      unit: this.normalizeUnit(product.unit),
       price: product.price,
       reorderLevel: product.reorderLevel,
       controlled: product.controlled,
@@ -192,7 +195,7 @@ export class ProductService {
       sku: String(value['sku'] ?? ''),
       name: String(value['name'] ?? ''),
       description: String(value['description'] ?? ''),
-      unit: String(value['unit'] ?? 'unit'),
+      unit: this.normalizeUnit(value['unit']),
       price: Number(value['price'] ?? 0),
       reorderLevel: Number(value['reorderLevel'] ?? value['reorder_level'] ?? 0),
       controlled: Boolean(value['controlled'] ?? value['controlled_flag'] ?? false),
@@ -203,5 +206,24 @@ export class ProductService {
       qtyReserved: Number(value['qtyReserved'] ?? value['qty_reserved'] ?? 0),
       qtyAvailable: Number(value['qtyAvailable'] ?? value['qty_available'] ?? 0)
     };
+  }
+
+  private normalizeUnit(value: unknown): ProductUnitOption {
+    const normalized = String(value ?? '')
+      .trim()
+      .toLowerCase();
+
+    switch (normalized) {
+      case 'box':
+        return 'Box';
+      case 'piece':
+      case 'pieces':
+        return 'Pieces';
+      case 'pack':
+      case 'packs':
+        return 'Packs';
+      default:
+        return 'Box';
+    }
   }
 }

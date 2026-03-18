@@ -8,8 +8,9 @@ CREATE TABLE IF NOT EXISTS users (
   username VARCHAR(50) NOT NULL,
   email VARCHAR(120) NOT NULL,
   full_name VARCHAR(120) NOT NULL,
+  avatar_path VARCHAR(255) NULL,
   password_hash VARCHAR(255) NOT NULL,
-  role ENUM('admin', 'employee') NOT NULL DEFAULT 'employee',
+  role ENUM('admin', 'employee', 'customer') NOT NULL DEFAULT 'employee',
   is_active TINYINT(1) NOT NULL DEFAULT 1,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -17,6 +18,34 @@ CREATE TABLE IF NOT EXISTS users (
   UNIQUE KEY uq_users_username (username),
   UNIQUE KEY uq_users_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+SET @users_has_avatar_path = (
+  SELECT COUNT(*)
+  FROM information_schema.columns
+  WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'avatar_path'
+);
+SET @sql_users_avatar_path = IF(
+  @users_has_avatar_path = 0,
+  'ALTER TABLE users ADD COLUMN avatar_path VARCHAR(255) NULL AFTER full_name',
+  'SELECT 1'
+);
+PREPARE stmt_users_avatar_path FROM @sql_users_avatar_path;
+EXECUTE stmt_users_avatar_path;
+DEALLOCATE PREPARE stmt_users_avatar_path;
+
+SET @users_has_customer_role = (
+  SELECT COUNT(*)
+  FROM information_schema.columns
+  WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'role'
+);
+SET @sql_users_customer_role = IF(
+  @users_has_customer_role = 1,
+  'ALTER TABLE users MODIFY COLUMN role ENUM(''admin'', ''employee'', ''customer'') NOT NULL DEFAULT ''employee''',
+  'SELECT 1'
+);
+PREPARE stmt_users_customer_role FROM @sql_users_customer_role;
+EXECUTE stmt_users_customer_role;
+DEALLOCATE PREPARE stmt_users_customer_role;
 
 CREATE TABLE IF NOT EXISTS login_logs (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -108,6 +137,9 @@ CREATE TABLE IF NOT EXISTS sales (
   patient_name VARCHAR(120) NULL,
   patient_id VARCHAR(40) NULL,
   total_amount DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
+  payment_method ENUM('cash', 'card') NOT NULL DEFAULT 'cash',
+  amount_paid DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
+  change_amount DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
   status ENUM('pending', 'completed', 'cancelled', 'refunded') NOT NULL DEFAULT 'completed',
   created_by_user_id BIGINT UNSIGNED NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -120,6 +152,129 @@ CREATE TABLE IF NOT EXISTS sales (
     FOREIGN KEY (created_by_user_id) REFERENCES users(id)
     ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS patients (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  patient_id VARCHAR(40) NULL,
+  full_name VARCHAR(120) NULL,
+  source ENUM('walk_in', 'online', 'manual') NOT NULL DEFAULT 'walk_in',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_patients_patient_id (patient_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS order_counters (
+  counter_date DATE NOT NULL,
+  `last_value` INT UNSIGNED NOT NULL DEFAULT 0,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (counter_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS customer_orders (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  order_no VARCHAR(30) NOT NULL,
+  customer_user_id BIGINT UNSIGNED NULL,
+  customer_name VARCHAR(120) NOT NULL,
+  mobile_number VARCHAR(30) NOT NULL,
+  fulfillment_method ENUM('pickup', 'delivery') NOT NULL DEFAULT 'pickup',
+  delivery_address VARCHAR(255) NULL,
+  notes VARCHAR(255) NULL,
+  total_amount DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
+  status ENUM('pending', 'approved', 'fulfilled', 'cancelled') NOT NULL DEFAULT 'pending',
+  approved_by_user_id BIGINT UNSIGNED NULL,
+  approved_at DATETIME NULL,
+  fulfilled_by_user_id BIGINT UNSIGNED NULL,
+  fulfilled_at DATETIME NULL,
+  cancelled_by_user_id BIGINT UNSIGNED NULL,
+  cancelled_at DATETIME NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_customer_orders_order_no (order_no),
+  KEY idx_customer_orders_status_created (status, created_at),
+  KEY idx_customer_orders_customer_name (customer_name),
+  KEY idx_customer_orders_mobile_number (mobile_number),
+  CONSTRAINT fk_customer_orders_customer_user
+    FOREIGN KEY (customer_user_id) REFERENCES users(id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT fk_customer_orders_approved_by
+    FOREIGN KEY (approved_by_user_id) REFERENCES users(id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT fk_customer_orders_fulfilled_by
+    FOREIGN KEY (fulfilled_by_user_id) REFERENCES users(id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT fk_customer_orders_cancelled_by
+    FOREIGN KEY (cancelled_by_user_id) REFERENCES users(id)
+    ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS customer_order_items (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  order_id BIGINT UNSIGNED NOT NULL,
+  product_id BIGINT UNSIGNED NOT NULL,
+  location_id BIGINT UNSIGNED NOT NULL,
+  quantity INT UNSIGNED NOT NULL,
+  unit_price DECIMAL(12, 2) NOT NULL,
+  line_total DECIMAL(12, 2) GENERATED ALWAYS AS (quantity * unit_price) STORED,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_customer_order_items_order (order_id),
+  KEY idx_customer_order_items_product (product_id),
+  KEY idx_customer_order_items_location (location_id),
+  CONSTRAINT fk_customer_order_items_order
+    FOREIGN KEY (order_id) REFERENCES customer_orders(id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_customer_order_items_product
+    FOREIGN KEY (product_id) REFERENCES products(id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT fk_customer_order_items_location
+    FOREIGN KEY (location_id) REFERENCES locations(id)
+    ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Backward-compatible migration for already-created databases.
+SET @sales_has_payment_method = (
+  SELECT COUNT(*)
+  FROM information_schema.columns
+  WHERE table_schema = DATABASE() AND table_name = 'sales' AND column_name = 'payment_method'
+);
+SET @sql_sales_payment_method = IF(
+  @sales_has_payment_method = 0,
+  'ALTER TABLE sales ADD COLUMN payment_method ENUM(''cash'', ''card'') NOT NULL DEFAULT ''cash''',
+  'SELECT 1'
+);
+PREPARE stmt_sales_payment_method FROM @sql_sales_payment_method;
+EXECUTE stmt_sales_payment_method;
+DEALLOCATE PREPARE stmt_sales_payment_method;
+
+SET @sales_has_amount_paid = (
+  SELECT COUNT(*)
+  FROM information_schema.columns
+  WHERE table_schema = DATABASE() AND table_name = 'sales' AND column_name = 'amount_paid'
+);
+SET @sql_sales_amount_paid = IF(
+  @sales_has_amount_paid = 0,
+  'ALTER TABLE sales ADD COLUMN amount_paid DECIMAL(12, 2) NOT NULL DEFAULT 0.00',
+  'SELECT 1'
+);
+PREPARE stmt_sales_amount_paid FROM @sql_sales_amount_paid;
+EXECUTE stmt_sales_amount_paid;
+DEALLOCATE PREPARE stmt_sales_amount_paid;
+
+SET @sales_has_change_amount = (
+  SELECT COUNT(*)
+  FROM information_schema.columns
+  WHERE table_schema = DATABASE() AND table_name = 'sales' AND column_name = 'change_amount'
+);
+SET @sql_sales_change_amount = IF(
+  @sales_has_change_amount = 0,
+  'ALTER TABLE sales ADD COLUMN change_amount DECIMAL(12, 2) NOT NULL DEFAULT 0.00',
+  'SELECT 1'
+);
+PREPARE stmt_sales_change_amount FROM @sql_sales_change_amount;
+EXECUTE stmt_sales_change_amount;
+DEALLOCATE PREPARE stmt_sales_change_amount;
 
 CREATE TABLE IF NOT EXISTS sale_items (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -204,7 +359,7 @@ CREATE TABLE IF NOT EXISTS stock_movements (
   ) NOT NULL,
   quantity INT NOT NULL,
   unit_cost DECIMAL(12, 2) NULL,
-  reference_type ENUM('purchase_receipt', 'sale', 'patient_issue', 'adjustment', 'transfer', 'return', 'manual') NOT NULL DEFAULT 'manual',
+  reference_type ENUM('purchase_receipt', 'sale', 'patient_issue', 'adjustment', 'transfer', 'return', 'manual', 'customer_order') NOT NULL DEFAULT 'manual',
   reference_id BIGINT UNSIGNED NULL,
   notes VARCHAR(255) NULL,
   created_by_user_id BIGINT UNSIGNED NULL,
@@ -224,6 +379,20 @@ CREATE TABLE IF NOT EXISTS stock_movements (
     FOREIGN KEY (created_by_user_id) REFERENCES users(id)
     ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+SET @stock_movements_has_customer_order_reference = (
+  SELECT COUNT(*)
+  FROM information_schema.columns
+  WHERE table_schema = DATABASE() AND table_name = 'stock_movements' AND column_name = 'reference_type'
+);
+SET @sql_stock_movements_customer_order_reference = IF(
+  @stock_movements_has_customer_order_reference = 1,
+  'ALTER TABLE stock_movements MODIFY COLUMN reference_type ENUM(''purchase_receipt'', ''sale'', ''patient_issue'', ''adjustment'', ''transfer'', ''return'', ''manual'', ''customer_order'') NOT NULL DEFAULT ''manual''',
+  'SELECT 1'
+);
+PREPARE stmt_stock_movements_customer_order_reference FROM @sql_stock_movements_customer_order_reference;
+EXECUTE stmt_stock_movements_customer_order_reference;
+DEALLOCATE PREPARE stmt_stock_movements_customer_order_reference;
 
 CREATE TABLE IF NOT EXISTS audit_logs (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,

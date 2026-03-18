@@ -1,37 +1,51 @@
 <div class="admin-shell" [class.nav-collapsed]="!sideNavOpen">
   <aside class="side-nav">
     <div class="brand">
-      <div class="brand-left">
-        <div class="brand-mark">H+</div>
-        <div class="brand-copy">
-          <h2>Inventory Admin</h2>
-          <p>Hospital Control Center</p>
+      <div class="brand-mark" [class.fallback]="!logoImageVisible">
+        <img
+          *ngIf="logoImageVisible"
+          src="/images/system-logo.svg"
+          alt="Hospital inventory logo"
+          (error)="onLogoImageError()"
+        />
+        <span *ngIf="!logoImageVisible">H+</span>
+      </div>
+      <div class="brand-copy">
+        <img
+          *ngIf="titleImageVisible"
+          class="brand-title-image"
+          src="/images/system-title.svg"
+          alt="Hospital inventory title"
+          (error)="onTitleImageError()"
+        />
+        <div class="brand-title-fallback" *ngIf="!titleImageVisible">
+          <h2>Hospital Inventory</h2>
+          <p>Admin Command Center</p>
         </div>
       </div>
     </div>
 
-    <nav class="nav-links">
-      <button
-        type="button"
-        class="nav-link-btn"
-        *ngFor="let item of navItems"
-        (click)="switchSection(item.section)"
-        [class.active]="activeSection === item.section"
-      >
-        <span class="nav-icon material-symbols-outlined">{{ item.icon }}</span>
-        <span class="nav-copy">
-          <strong>{{ item.label }}</strong>
-          <span>{{ item.helper }}</span>
-        </span>
-      </button>
-    </nav>
-
-    <div class="side-profile">
-      <div class="avatar">{{ avatarInitials }}</div>
-      <div class="side-profile-meta">
-        <h3>{{ displayName }}</h3>
-        <p>{{ roleLabel }}</p>
-      </div>
+    <div class="nav-groups">
+      <section class="nav-group" *ngFor="let group of navGroups">
+        <p class="nav-section-label">{{ group.title }}</p>
+        <nav class="nav-links">
+          <button
+            type="button"
+            class="nav-link-btn"
+            *ngFor="let item of group.items"
+            (click)="switchSection(item.section)"
+            [class.active]="activeSection === item.section"
+            [attr.title]="!sideNavOpen ? item.label : null"
+            [attr.aria-label]="item.label"
+          >
+            <span class="nav-icon material-symbols-outlined">{{ item.icon }}</span>
+            <span class="nav-copy">
+              <strong>{{ item.label }}</strong>
+              <span>{{ item.helper }}</span>
+            </span>
+          </button>
+        </nav>
+      </section>
     </div>
   </aside>
 
@@ -43,182 +57,276 @@
 
   <main class="main-pane">
     <header class="top-header">
-      <div class="title-block">
-        <h1>Admin Dashboard</h1>
-        <p>{{ todayLabel }}</p>
+      <div class="header-left">
+        <button class="header-brand minimal" type="button" (click)="refreshDashboardData()" aria-label="Refresh dashboard data">
+          <span class="header-brand-logo" [class.fallback]="!logoImageVisible">
+            <img
+              *ngIf="logoImageVisible"
+              src="/images/system-logo.svg"
+              alt="Hospital inventory logo"
+              (error)="onLogoImageError()"
+            />
+            <span *ngIf="!logoImageVisible">H+</span>
+          </span>
+        </button>
+        <p class="header-date minimal">{{ todayLabel }}</p>
       </div>
 
       <div class="header-right">
-        <div class="profile-chip">
-          <div class="profile-avatar">{{ avatarInitials }}</div>
-          <div>
+        <div class="profile-chip profile-chip-minimal">
+          <div class="profile-avatar" [class.has-image]="!!avatarUrl">
+            <img *ngIf="avatarUrl" [src]="avatarUrl" alt="Profile photo" class="avatar-image" />
+            <ng-container *ngIf="!avatarUrl">{{ avatarInitials }}</ng-container>
+          </div>
+          <div class="profile-chip-copy">
             <strong>{{ displayName }}</strong>
-            <span>{{ roleLabel }}</span>
           </div>
         </div>
-        <button mat-stroked-button color="warn" (click)="logout()">Logout</button>
+        <button class="header-action logout-btn" type="button" (click)="logout()">Logout</button>
       </div>
     </header>
 
-    <p class="state" *ngIf="loading">Loading dashboard data...</p>
-    <p class="state error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+    <div class="state-block" *ngIf="loading || errorMessage">
+      <p class="state" *ngIf="loading">Loading dashboard data...</p>
+      <p class="state error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+      <button type="button" class="retry-btn" (click)="retryDashboardLoad()">Retry</button>
+    </div>
 
     <ng-container [ngSwitch]="activeSection">
       <ng-container *ngSwitchCase="'overview'">
-        <section class="summary-cards">
-          <mat-card class="summary-card">
-            <mat-card-content>
-              <div class="card-icon">
-                <span class="material-symbols-outlined">inventory_2</span>
-              </div>
-              <div class="card-details">
-                <span class="card-label">Total Item SKUs</span>
-                <span class="card-value">{{ totalItems }}</span>
-              </div>
-            </mat-card-content>
-          </mat-card>
+        <section class="hero-panel">
+          <div class="hero-copy">
+            <p class="section-tag">Operations Overview</p>
+            <h1>Keep hospital inventory records consistent, traceable, and easy to act on.</h1>
+            <p>
+              This workspace is tuned for product setup, category maintenance, and audit-ready transaction visibility.
+              Your existing modules stay embedded below the same shell, so the redesign does not break the flow.
+            </p>
+          </div>
 
-          <mat-card class="summary-card">
-            <mat-card-content>
-              <div class="card-icon warning">
-                <span class="material-symbols-outlined">warning</span>
-              </div>
-              <div class="card-details">
-                <span class="card-label">Low Stock Alerts</span>
-                <span class="card-value">{{ lowStockItems }}</span>
-              </div>
-            </mat-card-content>
-          </mat-card>
-
-          <mat-card class="summary-card">
-            <mat-card-content>
-              <div class="card-icon">
-                <span class="material-symbols-outlined">category</span>
-              </div>
-              <div class="card-details">
-                <span class="card-label">Total Categories</span>
-                <span class="card-value">{{ totalCategories }}</span>
-              </div>
-            </mat-card-content>
-          </mat-card>
-        </section>
-
-        <section class="quick-actions">
-          <h2>Admin Quick Actions</h2>
-          <div class="action-buttons">
-            <button type="button" class="action-btn" *ngFor="let action of quickActions" (click)="switchSection(action.section)">
-              <strong>{{ action.title }}</strong>
-              <span>{{ action.subtitle }}</span>
-            </button>
+          <div class="hero-stats">
+            <article class="hero-stat">
+              <span>Total SKUs</span>
+              <strong>{{ totalItems }}</strong>
+              <small>Tracked inventory items</small>
+            </article>
+            <article class="hero-stat accent-warn">
+              <span>Low Stock</span>
+              <strong>{{ lowStockItems }}</strong>
+              <small>Needs review soon</small>
+            </article>
+            <article class="hero-stat accent-soft">
+              <span>Categories</span>
+              <strong>{{ totalCategories }}</strong>
+              <small>Live product groups</small>
+            </article>
           </div>
         </section>
 
-        <div class="dashboard-grid">
-          <mat-card class="recent-card">
-            <mat-card-header>
-              <mat-card-title>Recent Activities</mat-card-title>
-            </mat-card-header>
-            <mat-card-content>
-              <div class="activity-scroll">
-                <ul class="activity-list">
-                  <li class="activity-item" *ngFor="let item of paginatedActivities">
-                    <span class="activity-dot"></span>
-                    <div class="activity-text">
-                      <p class="activity-action">{{ item.action }}</p>
-                      <p class="activity-detail">{{ item.detail }}</p>
-                    </div>
-                    <span class="activity-time">{{ item.time }}</span>
-                  </li>
-                </ul>
-                <p class="empty" *ngIf="paginatedActivities.length === 0">No recent activities yet.</p>
-              </div>
+        <section class="overview-section">
+          <div class="section-heading">
+            <div>
+              <p class="section-tag">Modules</p>
+              <h2>Core Admin Actions</h2>
+            </div>
+            <p>Quick entry points that keep the most-used records close without leaving the dashboard shell.</p>
+          </div>
 
-              <div class="activity-pagination">
-                <button mat-stroked-button type="button" (click)="prevActivityPage()" [disabled]="currentActivityPage === 1">Prev</button>
-                <span>Page {{ currentActivityPage }} / {{ totalActivityPages }}</span>
-                <button
-                  mat-stroked-button
-                  type="button"
-                  (click)="nextActivityPage()"
-                  [disabled]="currentActivityPage === totalActivityPages"
-                >
-                  Next
+          <div class="module-grid">
+            <article class="module-card" *ngFor="let module of overviewModules">
+              <div class="module-card-head">
+                <span class="module-icon material-symbols-outlined">{{ module.icon }}</span>
+                <span class="module-eyebrow">{{ module.eyebrow }}</span>
+              </div>
+              <div class="module-copy">
+                <h3>{{ module.title }}</h3>
+                <p>{{ module.description }}</p>
+              </div>
+              <div class="module-actions">
+                <button type="button" class="module-btn primary" (click)="switchSection(module.primarySection)">
+                  {{ module.primaryLabel }}
+                </button>
+                <button type="button" class="module-btn secondary" (click)="switchSection(module.secondarySection)">
+                  {{ module.secondaryLabel }}
                 </button>
               </div>
-            </mat-card-content>
-          </mat-card>
+            </article>
+          </div>
+        </section>
 
-          <mat-card class="calendar-card">
-            <mat-card-header>
-              <mat-card-title>Stock Calendar</mat-card-title>
-            </mat-card-header>
-            <mat-card-content>
+        <section class="overview-grid two-column">
+          <article class="surface-card activity-surface">
+            <div class="surface-head">
+              <div>
+                <p class="section-tag">Activity</p>
+                <h2>Latest Activity Feed</h2>
+              </div>
+              <span class="surface-note">Page {{ currentActivityPage }} / {{ totalActivityPages }}</span>
+            </div>
+
+            <ul class="activity-list" *ngIf="paginatedActivities.length > 0; else emptyActivity">
+              <li class="activity-item" *ngFor="let item of paginatedActivities">
+                <span class="activity-dot"></span>
+                <div class="activity-copy">
+                  <strong>{{ item.action }}</strong>
+                  <p>{{ item.detail }}</p>
+                </div>
+                <span class="activity-time">{{ item.time }}</span>
+              </li>
+            </ul>
+            <ng-template #emptyActivity>
+              <p class="empty">No recent activity is available yet.</p>
+            </ng-template>
+
+            <div class="surface-actions compact">
+              <button type="button" class="module-btn secondary" (click)="prevActivityPage()" [disabled]="currentActivityPage === 1">
+                Prev
+              </button>
+              <button
+                type="button"
+                class="module-btn secondary"
+                (click)="nextActivityPage()"
+                [disabled]="currentActivityPage === totalActivityPages"
+              >
+                Next
+              </button>
+            </div>
+          </article>
+
+          <article class="surface-card calendar-surface">
+            <div class="surface-head">
+              <div>
+                <p class="section-tag">Calendar</p>
+                <h2>Stock Movement Calendar</h2>
+              </div>
               <div class="calendar-nav">
-                <button mat-stroked-button type="button" (click)="prevMonth()">Prev</button>
+                <button type="button" class="module-btn secondary" (click)="prevMonth()">Prev</button>
                 <span class="month-label">{{ monthLabel }}</span>
-                <button mat-stroked-button type="button" (click)="nextMonth()">Next</button>
+                <button type="button" class="module-btn secondary" (click)="nextMonth()">Next</button>
               </div>
+            </div>
 
-              <div class="range-switch">
-                <button mat-stroked-button type="button" [class.active]="selectedRange === 'day'" (click)="setRange('day')">Day</button>
-                <button mat-stroked-button type="button" [class.active]="selectedRange === 'week'" (click)="setRange('week')">Week</button>
-                <button mat-stroked-button type="button" [class.active]="selectedRange === 'month'" (click)="setRange('month')">Month</button>
+            <div class="range-switch">
+              <button type="button" [class.active]="selectedRange === 'day'" (click)="setRange('day')">Day</button>
+              <button type="button" [class.active]="selectedRange === 'week'" (click)="setRange('week')">Week</button>
+              <button type="button" [class.active]="selectedRange === 'month'" (click)="setRange('month')">Month</button>
+            </div>
+
+            <div class="range-summary">
+              <p class="range-label">{{ rangeLabel }}</p>
+              <p class="range-total">{{ rangeStockTotal }} units tracked</p>
+              <div class="range-products" *ngIf="rangeProductSummary.length > 0">
+                <span class="range-product" *ngFor="let item of rangeProductSummary | slice:0:4">
+                  {{ item.name }} ({{ item.total }})
+                </span>
               </div>
+            </div>
 
-              <div class="range-summary">
-                <p class="range-label">{{ rangeLabel }}</p>
-                <p class="range-total">{{ rangeStockTotal }} total units tracked</p>
-                <div class="range-products" *ngIf="rangeProductSummary.length > 0">
-                  <span class="range-product" *ngFor="let item of rangeProductSummary | slice:0:4">
-                    {{ item.name }} ({{ item.total }})
-                  </span>
+            <div class="calendar-grid weekday-row">
+              <span *ngFor="let day of weekdayHeaders">{{ day }}</span>
+            </div>
+
+            <div class="calendar-grid" *ngFor="let week of calendarWeeks">
+              <button
+                *ngFor="let day of week"
+                type="button"
+                class="calendar-day"
+                [class.muted]="!day.inCurrentMonth"
+                [class.today]="day.isToday"
+                (click)="selectDay(day)"
+              >
+                <span class="day-number">{{ day.value }}</span>
+                <span class="day-stock">{{ day.stockTotal }} stk</span>
+                <div class="day-products" *ngIf="day.products.length > 0">
+                  <span class="day-product" *ngFor="let product of day.products | slice:0:2">{{ product.name }}</span>
                 </div>
-              </div>
+              </button>
+            </div>
+          </article>
+        </section>
 
-              <div class="calendar-scroll">
-                <div class="calendar-grid weekday-row">
-                  <span *ngFor="let day of weekdayHeaders">{{ day }}</span>
-                </div>
+        <section class="surface-card table-surface overview-section">
+          <div class="surface-head table-head">
+            <div>
+              <p class="section-tag">Ledger</p>
+              <h2>Latest Transactions</h2>
+              <p class="surface-note">Recent stock movement rows pulled from the live inventory ledger.</p>
+            </div>
+            <label class="table-search">
+              <span class="material-symbols-outlined">search</span>
+              <input
+                type="search"
+                [value]="overviewSearch"
+                (input)="overviewSearch = $any($event.target).value"
+                placeholder="Search product, patient, location, or reference"
+              />
+            </label>
+          </div>
 
-                <div class="calendar-grid" *ngFor="let week of calendarWeeks">
-                  <button
-                    *ngFor="let day of week"
-                    type="button"
-                    class="calendar-day"
-                    [class.muted]="!day.inCurrentMonth"
-                    [class.today]="day.isToday"
-                    (click)="selectDay(day)"
-                  >
-                    <span class="day-number">{{ day.value }}</span>
-                    <span class="day-stock">{{ day.stockTotal }} stk</span>
-                    <div class="day-products" *ngIf="day.products.length > 0">
-                      <span class="day-product" *ngFor="let product of day.products | slice:0:2">{{ product.name }}</span>
-                      <span class="day-product more" *ngIf="day.products.length > 2">+{{ day.products.length - 2 }} more</span>
-                    </div>
-                  </button>
-                </div>
-              </div>
-            </mat-card-content>
-          </mat-card>
-        </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Module</th>
+                  <th>Product</th>
+                  <th>Patient</th>
+                  <th>Location</th>
+                  <th>Qty</th>
+                  <th>Reference</th>
+                  <th>User</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of filteredOverviewTransactions">
+                  <td>{{ row.dateLabel }}</td>
+                  <td><span class="table-pill">{{ row.moduleLabel }}</span></td>
+                  <td>{{ row.product }}</td>
+                  <td>{{ row.patient }}</td>
+                  <td>{{ row.location }}</td>
+                  <td>{{ row.quantityLabel }}</td>
+                  <td>{{ row.reference }}</td>
+                  <td>{{ row.user }}</td>
+                </tr>
+                <tr *ngIf="filteredOverviewTransactions.length === 0">
+                  <td colspan="8" class="empty-row">No transactions match the current search.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
       </ng-container>
+
+      <section class="embedded-section" *ngSwitchCase="'stockReceive'">
+        <app-stock-receive
+          [embeddedMode]="true"
+          [reloadToken]="stockReceiveReloadToken"
+          (receivePosted)="onStockReceived()"
+        ></app-stock-receive>
+      </section>
 
       <section class="embedded-section" *ngSwitchCase="'products'">
         <app-product-list
           [embeddedMode]="true"
+          [reloadToken]="productListReloadToken"
           (createRequested)="openProductCreate()"
           (editRequested)="openProductEdit($event)"
         ></app-product-list>
       </section>
 
       <section class="embedded-section" *ngSwitchCase="'productCreate'">
-        <app-product-form [embeddedMode]="true" (formCompleted)="onProductFormCompleted()"></app-product-form>
+        <app-product-form
+          [embeddedMode]="true"
+          [reloadToken]="productCreateReloadToken"
+          (formCompleted)="onProductFormCompleted()"
+        ></app-product-form>
       </section>
 
       <section class="embedded-section" *ngSwitchCase="'productEdit'">
         <app-product-form
           [embeddedMode]="true"
           [editProductId]="selectedProductId"
+          [reloadToken]="productEditReloadToken"
           (formCompleted)="onProductFormCompleted()"
         ></app-product-form>
       </section>
@@ -226,33 +334,39 @@
       <section class="embedded-section" *ngSwitchCase="'categories'">
         <app-category-list
           [embeddedMode]="true"
+          [reloadToken]="categoryListReloadToken"
           (createRequested)="openCategoryCreate()"
           (editRequested)="openCategoryEdit($event)"
         ></app-category-list>
       </section>
 
       <section class="embedded-section" *ngSwitchCase="'categoryCreate'">
-        <app-category-form [embeddedMode]="true" (formCompleted)="onCategoryFormCompleted()"></app-category-form>
+        <app-category-form
+          [embeddedMode]="true"
+          [reloadToken]="categoryCreateReloadToken"
+          (formCompleted)="onCategoryFormCompleted()"
+        ></app-category-form>
       </section>
 
       <section class="embedded-section" *ngSwitchCase="'categoryEdit'">
         <app-category-form
           [embeddedMode]="true"
           [editCategoryId]="selectedCategoryId"
+          [reloadToken]="categoryEditReloadToken"
           (formCompleted)="onCategoryFormCompleted()"
         ></app-category-form>
       </section>
 
-      <section class="embedded-section" *ngSwitchCase="'walkin'">
-        <app-walk-in-sale [embeddedMode]="true"></app-walk-in-sale>
-      </section>
-
-      <section class="embedded-section" *ngSwitchCase="'issue'">
-        <app-patient-issue [embeddedMode]="true"></app-patient-issue>
-      </section>
-
       <section class="embedded-section" *ngSwitchCase="'history'">
-        <app-transaction-history [embeddedMode]="true"></app-transaction-history>
+        <app-transaction-history [embeddedMode]="true" [reloadToken]="historyReloadToken"></app-transaction-history>
+      </section>
+
+      <section class="embedded-section" *ngSwitchCase="'orders'">
+        <app-order-management
+          [embeddedMode]="true"
+          [reloadToken]="ordersReloadToken"
+          (ordersChanged)="onOrdersChanged()"
+        ></app-order-management>
       </section>
     </ng-container>
   </main>

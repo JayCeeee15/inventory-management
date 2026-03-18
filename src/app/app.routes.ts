@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { LoginComponent } from './features/auth/login/login.component';
 import { authGuard } from './core/guards/auth.guard';
+import { roleGuard } from './core/guards/role.guard';
 import { navigationDelayGuard } from './core/guards/navigation-delay.guard';
 
 export const routes: Routes = [
@@ -26,12 +27,12 @@ export const routes: Routes = [
   },
   {
     path: 'dashboard',
-    canActivate: [authGuard, navigationDelayGuard],
+    canActivate: [authGuard, roleGuard(['admin']), navigationDelayGuard],
     loadComponent: () => import('./features/dashboard/dashboard.component').then(m => m.DashboardComponent)
   },
   {
     path: 'employee-dashboard',
-    canActivate: [authGuard, navigationDelayGuard],
+    canActivate: [authGuard, roleGuard(['employee']), navigationDelayGuard],
     loadComponent: () =>
       import('./features/employee-dashboard/employee-dashboard.component').then(
         m => m.EmployeeDashboardComponent
@@ -39,13 +40,13 @@ export const routes: Routes = [
   },
   {
     path: 'transactions/walk-in',
-    canActivate: [authGuard, navigationDelayGuard],
+    canActivate: [authGuard, roleGuard(['employee']), navigationDelayGuard],
     loadComponent: () =>
       import('./features/transactions/walk-in-sale/walk-in-sale.component').then(m => m.WalkInSaleComponent)
   },
   {
     path: 'transactions/patient-issue',
-    canActivate: [authGuard, navigationDelayGuard],
+    canActivate: [authGuard, roleGuard(['employee']), navigationDelayGuard],
     loadComponent: () =>
       import('./features/transactions/patient-issue/patient-issue.component').then(m => m.PatientIssueComponent)
   },
@@ -59,37 +60,37 @@ export const routes: Routes = [
   },
   {
     path: 'products',
-    canActivate: [authGuard, navigationDelayGuard],
+    canActivate: [authGuard, roleGuard(['admin']), navigationDelayGuard],
     loadComponent: () =>
       import('./features/products/product-list/product-list.component').then(m => m.ProductListComponent)
   },
   {
     path: 'products/new',
-    canActivate: [authGuard, navigationDelayGuard],
+    canActivate: [authGuard, roleGuard(['admin']), navigationDelayGuard],
     loadComponent: () =>
       import('./features/products/product-form/product-form.component').then(m => m.ProductFormComponent)
   },
   {
     path: 'products/edit/:id',
-    canActivate: [authGuard, navigationDelayGuard],
+    canActivate: [authGuard, roleGuard(['admin']), navigationDelayGuard],
     loadComponent: () =>
       import('./features/products/product-form/product-form.component').then(m => m.ProductFormComponent)
   },
   {
     path: 'categories',
-    canActivate: [authGuard, navigationDelayGuard],
+    canActivate: [authGuard, roleGuard(['admin']), navigationDelayGuard],
     loadComponent: () =>
       import('./features/categories/category-list/category-list.component').then(m => m.CategoryListComponent)
   },
   {
     path: 'categories/new',
-    canActivate: [authGuard, navigationDelayGuard],
+    canActivate: [authGuard, roleGuard(['admin']), navigationDelayGuard],
     loadComponent: () =>
       import('./features/categories/category-form/category-form.component').then(m => m.CategoryFormComponent)
   },
   {
     path: 'categories/edit/:id',
-    canActivate: [authGuard, navigationDelayGuard],
+    canActivate: [authGuard, roleGuard(['admin']), navigationDelayGuard],
     loadComponent: () =>
       import('./features/categories/category-form/category-form.component').then(m => m.CategoryFormComponent)
   },

@@ -1,0 +1,215 @@
+<div class="orders-page">
+  <header class="page-header">
+    <div>
+      <h1>Order Management</h1>
+      <p>Review, approve, fulfill, or cancel online customer orders.</p>
+    </div>
+  </header>
+
+  <mat-card class="filters-card">
+    <div class="filters-row">
+      <label class="field">
+        <span>Search</span>
+        <input
+          type="search"
+          [(ngModel)]="searchTerm"
+          placeholder="Order no, customer, mobile"
+          [disabled]="loading || actionLoading"
+        />
+      </label>
+
+      <label class="field">
+        <span>Status</span>
+        <select [(ngModel)]="statusFilter" [disabled]="loading || actionLoading">
+          <option value="">All statuses</option>
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="fulfilled">Fulfilled</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </label>
+
+      <div class="filter-actions">
+        <button mat-flat-button color="primary" type="button" (click)="applyFilters()" [disabled]="loading || actionLoading">
+          Apply
+        </button>
+        <button mat-stroked-button type="button" (click)="resetFilters()" [disabled]="loading || actionLoading">
+          Reset
+        </button>
+      </div>
+    </div>
+  </mat-card>
+
+  <div class="state-panel" *ngIf="loading || errorMessage || successMessage">
+    <p class="state" *ngIf="loading">Loading customer orders...</p>
+    <p class="state success" *ngIf="!loading && successMessage">{{ successMessage }}</p>
+    <p class="state error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+    <button mat-stroked-button type="button" class="retry-btn" (click)="retryLoad()" [disabled]="loading || actionLoading">
+      Retry
+    </button>
+  </div>
+
+  <mat-card class="table-card">
+    <div class="table-wrap" *ngIf="orders.length > 0; else emptyState">
+      <table>
+        <thead>
+          <tr>
+            <th>Order Ref</th>
+            <th>Customer</th>
+            <th>Mobile</th>
+            <th>Method</th>
+            <th>Items</th>
+            <th>Total</th>
+            <th>Status</th>
+            <th>Created</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let order of orders; trackBy: trackByOrderId">
+            <td>
+              <button type="button" class="order-link" (click)="openOrder(order)">{{ order.orderNo }}</button>
+            </td>
+            <td>{{ order.customerName }}</td>
+            <td>{{ order.mobileNumber }}</td>
+            <td>{{ order.fulfillmentMethod | titlecase }}</td>
+            <td>{{ order.itemCount }} / {{ order.totalQuantity }}</td>
+            <td>{{ formatMoney(order.totalAmount) }}</td>
+            <td><span class="status-pill" [attr.data-status]="order.status">{{ order.status | titlecase }}</span></td>
+            <td>{{ order.createdAt | date: 'MMM d, y h:mm a' }}</td>
+            <td class="actions">
+              <button
+                *ngIf="canApprove(order)"
+                mat-stroked-button
+                type="button"
+                (click)="handleOrderAction('approve', order)"
+                [disabled]="actionLoading"
+              >
+                Approve
+              </button>
+              <button
+                *ngIf="canFulfill(order)"
+                mat-flat-button
+                color="primary"
+                type="button"
+                (click)="handleOrderAction('fulfill', order)"
+                [disabled]="actionLoading"
+              >
+                Fulfill
+              </button>
+              <button
+                *ngIf="canCancel(order)"
+                mat-stroked-button
+                color="warn"
+                type="button"
+                (click)="handleOrderAction('cancel', order)"
+                [disabled]="actionLoading"
+              >
+                Cancel
+              </button>
+              <span *ngIf="!canApprove(order) && !canFulfill(order) && !canCancel(order)">-</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <ng-template #emptyState>
+      <p class="empty">No customer orders found for the current filters.</p>
+    </ng-template>
+
+    <div class="pager" *ngIf="total > 0">
+      <p>Page {{ page }} of {{ totalPages }}</p>
+      <div class="pager-controls">
+        <button mat-stroked-button type="button" (click)="prevPage()" [disabled]="page <= 1 || loading">Previous</button>
+        <button mat-stroked-button type="button" (click)="nextPage()" [disabled]="page >= totalPages || loading">Next</button>
+      </div>
+    </div>
+  </mat-card>
+
+  <div class="detail-backdrop" *ngIf="detailOpen" (click)="closeDetail()">
+    <section class="detail-panel" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-label="Order details">
+      <div class="detail-header">
+        <div>
+          <h2>Order Details</h2>
+          <p *ngIf="selectedOrder">{{ selectedOrder.orderNo }} | {{ selectedOrder.createdAt | date: 'MMM d, y h:mm a' }}</p>
+        </div>
+        <button mat-stroked-button type="button" (click)="closeDetail()">Close</button>
+      </div>
+
+      <div class="detail-state" *ngIf="detailLoading || detailErrorMessage">
+        <p class="state" *ngIf="detailLoading">Loading order details...</p>
+        <p class="state error" *ngIf="!detailLoading && detailErrorMessage">{{ detailErrorMessage }}</p>
+      </div>
+
+      <div class="detail-content" *ngIf="!detailLoading && selectedOrder as order">
+        <div class="detail-grid">
+          <div class="detail-card">
+            <span>Customer</span>
+            <strong>{{ order.customerName }}</strong>
+          </div>
+          <div class="detail-card">
+            <span>Mobile</span>
+            <strong>{{ order.mobileNumber }}</strong>
+          </div>
+          <div class="detail-card">
+            <span>Method</span>
+            <strong>{{ order.fulfillmentMethod | titlecase }}</strong>
+          </div>
+          <div class="detail-card">
+            <span>Status</span>
+            <strong>{{ order.status | titlecase }}</strong>
+          </div>
+        </div>
+
+        <div class="address-card" *ngIf="order.deliveryAddress">
+          <span>Delivery Address</span>
+          <strong>{{ order.deliveryAddress }}</strong>
+        </div>
+
+        <div class="address-card" *ngIf="order.notes">
+          <span>Notes</span>
+          <strong>{{ order.notes }}</strong>
+        </div>
+
+        <div class="detail-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Location</th>
+                <th>Qty</th>
+                <th>Unit Price</th>
+                <th>Line Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of order.items">
+                <td>{{ item.productName }} <small>{{ item.sku }}</small></td>
+                <td>{{ item.locationName }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>{{ formatMoney(item.unitPrice) }}</td>
+                <td>{{ formatMoney(item.lineTotal) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="detail-footer">
+          <strong>Total: {{ formatMoney(order.totalAmount) }}</strong>
+          <div class="actions">
+            <button *ngIf="canApprove(order)" mat-stroked-button type="button" (click)="handleOrderAction('approve', order)" [disabled]="actionLoading">
+              Approve
+            </button>
+            <button *ngIf="canFulfill(order)" mat-flat-button color="primary" type="button" (click)="handleOrderAction('fulfill', order)" [disabled]="actionLoading">
+              Fulfill
+            </button>
+            <button *ngIf="canCancel(order)" mat-stroked-button color="warn" type="button" (click)="handleOrderAction('cancel', order)" [disabled]="actionLoading">
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>

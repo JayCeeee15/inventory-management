@@ -8,6 +8,12 @@
   background: linear-gradient(180deg, #fffefe 0%, #fff4f6 100%);
 }
 
+.product-form-page.drawer-mode {
+  min-height: auto;
+  padding: 20px 20px 24px;
+  background: transparent;
+}
+
 .form-header {
   display: flex;
   justify-content: space-between;
@@ -34,6 +40,11 @@
   box-shadow: 0 10px 24px rgba(127, 29, 45, 0.09);
 }
 
+.product-form-page.drawer-mode .form-card {
+  max-width: none;
+  box-shadow: none;
+}
+
 .product-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -58,6 +69,26 @@
 
 .state.error {
   color: #b91c1c;
+}
+
+.state-panel {
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.state-panel .state {
+  padding: 0;
+}
+
+.retry-btn {
+  min-width: auto;
+  height: 30px;
+  padding: 0 10px;
+  font-size: 0.75rem;
+  line-height: 1;
 }
 
 @media (max-width: 800px) {

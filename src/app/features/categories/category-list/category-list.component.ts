@@ -1,8 +1,18 @@
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  Component,
+  EventEmitter,
+  Input,
+  OnChanges,
+  OnDestroy,
+  OnInit,
+  Output,
+  SimpleChanges
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { finalize } from 'rxjs';
+import { Subscription, finalize, retry, timeout, timer } from 'rxjs';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -27,12 +37,18 @@ import { Category } from '../../../shared/models/category.model';
       <header class="page-header">
         <div>
           <h1>Location & Category Management</h1>
-          <p>Configure hospital storage groups, departments, and item classifications.</p>
+          <p>
+            {{
+              canManage
+                ? 'Configure hospital storage groups, departments, and item classifications.'
+                : 'Review hospital storage groups, departments, and item classifications.'
+            }}
+          </p>
         </div>
-        <button *ngIf="embeddedMode" mat-flat-button color="primary" type="button" (click)="requestCreate()">
+        <button *ngIf="embeddedMode && canManage" mat-flat-button color="primary" type="button" (click)="requestCreate()">
           Add Category
         </button>
-        <button *ngIf="!embeddedMode" mat-flat-button color="primary" routerLink="/categories/new">Add Category</button>
+        <button *ngIf="!embeddedMode && canManage" mat-flat-button color="primary" routerLink="/categories/new">Add Category</button>
       </header>
 
       <mat-card class="filters-card">
@@ -48,8 +64,13 @@ import { Category } from '../../../shared/models/category.model';
       </mat-card>
 
       <mat-card class="table-card">
-        <div class="state" *ngIf="loading">Loading categories...</div>
-        <div class="state error" *ngIf="!loading && errorMessage">{{ errorMessage }}</div>
+        <div class="state-panel" *ngIf="loading || errorMessage">
+          <div class="state" *ngIf="loading">{{ loadingMessage }}</div>
+          <div class="state error" *ngIf="!loading && errorMessage">{{ errorMessage }}</div>
+          <button mat-stroked-button type="button" class="retry-btn" (click)="loadCategories()" [disabled]="loading">
+            Retry
+          </button>
+        </div>
 
         <div class="table-wrap" *ngIf="!loading && !errorMessage">
           <table class="categories-table" *ngIf="filteredCategories.length > 0; else emptyState">
@@ -57,14 +78,14 @@ import { Category } from '../../../shared/models/category.model';
               <tr>
                 <th>Name</th>
                 <th>Description</th>
-                <th class="actions">Actions</th>
+                <th *ngIf="canManage" class="actions">Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let category of filteredCategories">
+              <tr *ngFor="let category of filteredCategories; trackBy: trackByCategoryId">
                 <td>{{ category.name }}</td>
                 <td>{{ category.description }}</td>
-                <td class="actions">
+                <td *ngIf="canManage" class="actions">
                   <button
                     *ngIf="embeddedMode"
                     mat-stroked-button
@@ -172,42 +193,77 @@ import { Category } from '../../../shared/models/category.model';
       .error {
         color: #b91c1c;
       }
+
+      .state-panel {
+        padding: 8px 12px;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .state-panel .state {
+        padding: 0;
+      }
+
+      .retry-btn {
+        min-width: auto;
+        height: 30px;
+        padding: 0 10px;
+        font-size: 0.75rem;
+        line-height: 1;
+      }
     `
   ]
 })
-export class CategoryListComponent implements OnInit {
+export class CategoryListComponent implements OnInit, OnChanges, OnDestroy {
+  private static readonly LOAD_TIMEOUT_MS = 8000;
+  private loadSub?: Subscription;
+  private currentLoadId = 0;
+  private initialized = false;
+  private destroyed = false;
+  private autoRetryUsed = false;
+
   @Input() embeddedMode = false;
+  @Input() reloadToken = 0;
+  @Input() canManage = true;
   @Output() createRequested = new EventEmitter<void>();
   @Output() editRequested = new EventEmitter<number>();
 
   categories: Category[] = [];
   filteredCategories: Category[] = [];
   loading = false;
+  loadingMessage = 'Loading categories...';
   errorMessage = '';
   searchTerm = '';
 
-  constructor(private categoryService: CategoryService) {}
+  constructor(
+    private categoryService: CategoryService,
+    private cdr: ChangeDetectorRef
+  ) {}
 
   ngOnInit(): void {
-    this.loadCategories();
+    this.initialized = true;
+    this.runLoad('init');
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (!this.initialized) {
+      return;
+    }
+
+    if (changes['reloadToken']) {
+      this.runLoad('input-change');
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.destroyed = true;
+    this.loadSub?.unsubscribe();
   }
 
   loadCategories(): void {
-    this.loading = true;
-    this.errorMessage = '';
-
-    this.categoryService
-      .getAll()
-      .pipe(finalize(() => (this.loading = false)))
-      .subscribe({
-        next: categories => {
-          this.categories = categories;
-          this.applyFilter();
-        },
-        error: () => {
-          this.errorMessage = 'Failed to load categories.';
-        }
-      });
+    this.runLoad('retry');
   }
 
   applyFilter(): void {
@@ -225,14 +281,26 @@ export class CategoryListComponent implements OnInit {
   }
 
   requestCreate(): void {
+    if (!this.canManage) {
+      return;
+    }
+
     this.createRequested.emit();
   }
 
   requestEdit(categoryId: number): void {
+    if (!this.canManage) {
+      return;
+    }
+
     this.editRequested.emit(categoryId);
   }
 
   deleteCategory(category: Category): void {
+    if (!this.canManage) {
+      return;
+    }
+
     const confirmed = confirm(`Delete category "${category.name}"?`);
     if (!confirmed) {
       return;
@@ -240,12 +308,97 @@ export class CategoryListComponent implements OnInit {
 
     this.categoryService.delete(category.id).subscribe({
       next: () => {
-        this.categories = this.categories.filter(c => c.id !== category.id);
-        this.applyFilter();
+        this.runLoad('input-change');
       },
       error: () => {
         this.errorMessage = 'Failed to delete category.';
+        this.refreshUi();
       }
     });
+  }
+
+  trackByCategoryId(_: number, category: Category): number {
+    return category.id;
+  }
+
+  private runLoad(reason: 'init' | 'input-change' | 'retry'): void {
+    this.loadSub?.unsubscribe();
+    const loadId = ++this.currentLoadId;
+
+    this.autoRetryUsed = false;
+    this.loading = true;
+    this.loadingMessage = reason === 'retry' ? 'Connection issue. Retrying categories...' : 'Loading categories...';
+    this.errorMessage = '';
+    this.refreshUi();
+
+    this.loadSub = this.categoryService
+      .getAll()
+      .pipe(
+        timeout(CategoryListComponent.LOAD_TIMEOUT_MS),
+        retry({
+          count: 1,
+          delay: (_error, _retryCount) => {
+            if (loadId !== this.currentLoadId) {
+              return timer(0);
+            }
+            this.autoRetryUsed = true;
+            this.loadingMessage = 'Connection issue. Retrying once...';
+            this.refreshUi();
+            return timer(250);
+          }
+        }),
+        finalize(() => {
+          if (loadId !== this.currentLoadId) {
+            return;
+          }
+          this.loading = false;
+          this.loadingMessage = 'Loading categories...';
+          this.refreshUi();
+        })
+      )
+      .subscribe({
+        next: categories => {
+          if (loadId !== this.currentLoadId) {
+            return;
+          }
+
+          this.categories = categories;
+          this.applyFilter();
+          this.refreshUi();
+        },
+        error: (error: unknown) => {
+          if (loadId !== this.currentLoadId) {
+            return;
+          }
+
+          if (
+            typeof error === 'object' &&
+            error !== null &&
+            'name' in error &&
+            (error as { name: string }).name === 'TimeoutError'
+          ) {
+            this.errorMessage = 'Unable to load categories. Please retry.';
+            this.refreshUi();
+            return;
+          }
+
+          this.errorMessage = this.autoRetryUsed
+            ? 'Unable to load categories after retry. Please retry.'
+            : 'Unable to load categories. Please retry.';
+          this.refreshUi();
+        }
+      });
+  }
+
+  private refreshUi(): void {
+    if (this.destroyed) {
+      return;
+    }
+
+    try {
+      this.cdr.detectChanges();
+    } catch {
+      // No-op: component may be unmounting while async callback completes.
+    }
   }
 }

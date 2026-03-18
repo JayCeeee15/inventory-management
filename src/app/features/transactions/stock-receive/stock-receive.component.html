@@ -1,0 +1,84 @@
+<div class="txn-page">
+  <header class="page-header">
+    <div>
+      <h1>Stock Receive</h1>
+      <p>Receive stock into an existing location and increase on-hand inventory immediately.</p>
+    </div>
+    <button *ngIf="!embeddedMode" mat-stroked-button routerLink="/dashboard">Back to Dashboard</button>
+  </header>
+
+  <mat-card class="txn-card">
+    <div class="state-panel" *ngIf="loading || errorMessage">
+      <p class="state" *ngIf="loading">{{ loadingMessage }}</p>
+      <p class="state error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+      <button mat-stroked-button type="button" class="retry-btn" (click)="retryReferenceData()" [disabled]="loading">
+        Retry
+      </button>
+    </div>
+    <p class="state success" *ngIf="!loading && successMessage">{{ successMessage }}</p>
+
+    <form class="txn-form" [formGroup]="form" (ngSubmit)="onSubmit()" *ngIf="!loading">
+      <mat-form-field appearance="outline">
+        <mat-label>Item</mat-label>
+        <select matNativeControl formControlName="productId" (change)="onProductSelectionChange()">
+          <option value="">Select item</option>
+          <option *ngFor="let product of products" [value]="product.id">
+            {{ product.name }} ({{ product.sku }})
+          </option>
+        </select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Location</mat-label>
+        <select matNativeControl formControlName="locationId" (change)="onLocationSelectionChange()">
+          <option value="">Select location</option>
+          <option *ngFor="let location of locations" [value]="location.id">{{ location.name }}</option>
+        </select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Received Quantity</mat-label>
+        <input matInput type="number" min="1" formControlName="quantity" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Unit Cost</mat-label>
+        <span matPrefix>₱&nbsp;</span>
+        <input matInput type="number" min="0" step="0.01" formControlName="unitCost" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-row">
+        <mat-label>Receiving Notes</mat-label>
+        <textarea matInput rows="2" formControlName="notes"></textarea>
+      </mat-form-field>
+
+      <section class="summary-panel full-row">
+        <div class="summary-block">
+          <span>Current On Hand</span>
+          <strong>{{ currentQtyOnHand }}</strong>
+        </div>
+        <div class="summary-block">
+          <span>Current Available</span>
+          <strong>{{ currentQtyAvailable }}</strong>
+        </div>
+        <div class="summary-block accent">
+          <span>Projected On Hand</span>
+          <strong>{{ projectedQtyOnHand }}</strong>
+        </div>
+        <div class="summary-block accent-soft">
+          <span>Projected Available</span>
+          <strong>{{ projectedQtyAvailable }}</strong>
+        </div>
+      </section>
+
+      <div class="stock-note full-row" *ngIf="stockLoading">Refreshing current stock from the database...</div>
+
+      <div class="form-actions">
+        <button *ngIf="!embeddedMode" mat-stroked-button type="button" routerLink="/dashboard">Cancel</button>
+        <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || submitting || stockLoading">
+          {{ submitting ? 'Saving...' : 'Post Stock Receive' }}
+        </button>
+      </div>
+    </form>
+  </mat-card>
+</div>

@@ -8,8 +8,13 @@
   </header>
 
   <mat-card class="txn-card">
-    <p class="state" *ngIf="loading">Loading products and locations...</p>
-    <p class="state error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+    <div class="state-panel" *ngIf="loading || errorMessage">
+      <p class="state" *ngIf="loading">{{ loadingMessage }}</p>
+      <p class="state error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+      <button mat-stroked-button type="button" class="retry-btn" (click)="retryReferenceData()" [disabled]="loading">
+        Retry
+      </button>
+    </div>
     <p class="state success" *ngIf="!loading && successMessage">{{ successMessage }}</p>
 
     <form class="txn-form" [formGroup]="form" (ngSubmit)="onSubmit()" *ngIf="!loading">

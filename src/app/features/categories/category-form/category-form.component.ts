@@ -1,8 +1,18 @@
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  Component,
+  EventEmitter,
+  Input,
+  OnChanges,
+  OnDestroy,
+  OnInit,
+  Output,
+  SimpleChanges
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { finalize } from 'rxjs';
+import { Subscription, finalize, retry, timeout, timer } from 'rxjs';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -33,8 +43,13 @@ import { CategoryFormData } from '../../../shared/models/category.model';
       </header>
 
       <mat-card class="form-card">
-        <div class="state" *ngIf="loading">Loading category details...</div>
-        <div class="state error" *ngIf="!loading && errorMessage">{{ errorMessage }}</div>
+        <div class="state-panel" *ngIf="loading || errorMessage">
+          <div class="state" *ngIf="loading">{{ loadingMessage }}</div>
+          <div class="state error" *ngIf="!loading && errorMessage">{{ errorMessage }}</div>
+          <button mat-stroked-button type="button" class="retry-btn" (click)="retryLoadCategory()" [disabled]="loading">
+            Retry
+          </button>
+        </div>
 
         <form *ngIf="!loading" [formGroup]="form" (ngSubmit)="onSubmit()" class="category-form">
           <mat-form-field appearance="outline">
@@ -112,17 +127,45 @@ import { CategoryFormData } from '../../../shared/models/category.model';
       .error {
         color: #b91c1c;
       }
+
+      .state-panel {
+        padding: 8px 12px;
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .state-panel .state {
+        padding: 0;
+      }
+
+      .retry-btn {
+        min-width: auto;
+        height: 30px;
+        padding: 0 10px;
+        font-size: 0.75rem;
+        line-height: 1;
+      }
     `
   ]
 })
-export class CategoryFormComponent implements OnInit {
+export class CategoryFormComponent implements OnInit, OnChanges, OnDestroy {
+  private static readonly LOAD_TIMEOUT_MS = 8000;
+  private loadSub?: Subscription;
+  private currentLoadId = 0;
+  private initialized = false;
+  private destroyed = false;
+
   @Input() embeddedMode = false;
   @Input() editCategoryId: number | null = null;
+  @Input() reloadToken = 0;
   @Output() formCompleted = new EventEmitter<void>();
 
   isEditMode = false;
   categoryId: number | null = null;
   loading = false;
+  loadingMessage = 'Loading category details...';
   saving = false;
   errorMessage = '';
   form: FormGroup;
@@ -131,7 +174,8 @@ export class CategoryFormComponent implements OnInit {
     private fb: FormBuilder,
     private route: ActivatedRoute,
     private router: Router,
-    private categoryService: CategoryService
+    private categoryService: CategoryService,
+    private cdr: ChangeDetectorRef
   ) {
     this.form = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2)]],
@@ -140,15 +184,44 @@ export class CategoryFormComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    const routeIdParam = this.route.snapshot.paramMap.get('id');
-    const routeId = routeIdParam ? Number(routeIdParam) : null;
-    const id = this.editCategoryId ?? routeId;
-
-    if (id && !Number.isNaN(id)) {
-      this.isEditMode = true;
-      this.categoryId = id;
-      this.loadCategory(id);
+    this.initialized = true;
+    this.syncCategoryContext();
+    if (this.isEditMode && this.categoryId !== null) {
+      this.runLoad('init');
     }
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (!this.initialized) {
+      return;
+    }
+
+    if (changes['editCategoryId'] || changes['reloadToken']) {
+      this.syncCategoryContext();
+      if (this.isEditMode && this.categoryId !== null) {
+        this.runLoad('input-change');
+      } else if (changes['reloadToken']) {
+        this.errorMessage = '';
+        this.form.reset({
+          name: '',
+          description: ''
+        });
+        this.refreshUi();
+      }
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.destroyed = true;
+    this.loadSub?.unsubscribe();
+  }
+
+  retryLoadCategory(): void {
+    if (this.categoryId === null) {
+      return;
+    }
+
+    this.runLoad('retry');
   }
 
   onSubmit(): void {
@@ -178,6 +251,7 @@ export class CategoryFormComponent implements OnInit {
           next: () => this.handleSaveSuccess(),
           error: () => {
             this.errorMessage = 'Failed to update category.';
+            this.refreshUi();
           }
         });
       return;
@@ -190,8 +264,98 @@ export class CategoryFormComponent implements OnInit {
         next: () => this.handleSaveSuccess(),
         error: () => {
           this.errorMessage = 'Failed to create category.';
+          this.refreshUi();
         }
       });
+  }
+
+  private runLoad(reason: 'init' | 'input-change' | 'retry'): void {
+    if (!this.isEditMode || this.categoryId === null) {
+      this.loading = false;
+      this.loadingMessage = 'Loading category details...';
+      this.errorMessage = '';
+      this.refreshUi();
+      return;
+    }
+
+    this.loadSub?.unsubscribe();
+    const loadId = ++this.currentLoadId;
+
+    this.loading = true;
+    this.loadingMessage =
+      reason === 'retry' ? 'Connection issue. Retrying category details...' : 'Loading category details...';
+    this.errorMessage = '';
+    this.refreshUi();
+
+    this.loadSub = this.categoryService
+      .getById(this.categoryId)
+      .pipe(
+        timeout(CategoryFormComponent.LOAD_TIMEOUT_MS),
+        retry({
+          count: 1,
+          delay: () => {
+            if (loadId !== this.currentLoadId) {
+              return timer(0);
+            }
+            this.loadingMessage = 'Connection issue. Retrying once...';
+            this.refreshUi();
+            return timer(250);
+          }
+        }),
+        finalize(() => {
+          if (loadId !== this.currentLoadId) {
+            return;
+          }
+          this.loading = false;
+          this.loadingMessage = 'Loading category details...';
+          this.refreshUi();
+        })
+      )
+      .subscribe({
+        next: category => {
+          if (loadId !== this.currentLoadId) {
+            return;
+          }
+          this.form.patchValue({
+            name: category.name,
+            description: category.description
+          });
+          this.refreshUi();
+        },
+        error: (error: unknown) => {
+          if (loadId !== this.currentLoadId) {
+            return;
+          }
+
+          if (
+            typeof error === 'object' &&
+            error !== null &&
+            'name' in error &&
+            (error as { name: string }).name === 'TimeoutError'
+          ) {
+            this.errorMessage = 'Unable to load category details. Please retry.';
+          } else {
+            this.errorMessage = 'Failed to load category details.';
+          }
+          this.refreshUi();
+        }
+      });
+  }
+
+  private syncCategoryContext(): void {
+    const routeIdParam = this.route.snapshot.paramMap.get('id');
+    const routeId = routeIdParam ? Number(routeIdParam) : null;
+    const normalizedRouteId = routeId !== null && !Number.isNaN(routeId) ? routeId : null;
+    const id = this.editCategoryId ?? normalizedRouteId;
+
+    if (id === null || id <= 0) {
+      this.isEditMode = false;
+      this.categoryId = null;
+      return;
+    }
+
+    this.isEditMode = true;
+    this.categoryId = id;
   }
 
   private handleSaveSuccess(): void {
@@ -211,23 +375,15 @@ export class CategoryFormComponent implements OnInit {
     this.router.navigate(['/categories']);
   }
 
-  private loadCategory(id: number): void {
-    this.loading = true;
-    this.errorMessage = '';
+  private refreshUi(): void {
+    if (this.destroyed) {
+      return;
+    }
 
-    this.categoryService
-      .getById(id)
-      .pipe(finalize(() => (this.loading = false)))
-      .subscribe({
-        next: category => {
-          this.form.patchValue({
-            name: category.name,
-            description: category.description
-          });
-        },
-        error: () => {
-          this.errorMessage = 'Failed to load category details.';
-        }
-      });
+    try {
+      this.cdr.detectChanges();
+    } catch {
+      // No-op: component may be unmounting while async callbacks complete.
+    }
   }
 }

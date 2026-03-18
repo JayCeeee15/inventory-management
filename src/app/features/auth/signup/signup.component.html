@@ -2,8 +2,8 @@
   <div class="signup-card">
     <a routerLink="/" class="home-link">&lt; Back to Home</a>
 
-    <h1>Create Hospital Staff Account</h1>
-    <p>Register as staff and access the hospital inventory workspace.</p>
+    <h1>Create Customer Account</h1>
+    <p>Register to place online orders and track hospital inventory items from the public shop.</p>
 
     <form [formGroup]="form" (ngSubmit)="onSubmit()">
       <mat-form-field appearance="outline" class="field">
@@ -34,7 +34,7 @@
       </button>
     </form>
 
-    <p class="success" *ngIf="submitted">Staff account created.</p>
+    <p class="success" *ngIf="submitted">Customer account created.</p>
     <a routerLink="/login" class="back">Back to Login</a>
   </div>
 </div>
