@@ -26,6 +26,7 @@ import {
   StockReceiveResult
 } from '../../../core/services/inventory.service';
 import { TransactionReferenceService } from '../../../core/services/transaction-reference.service';
+import { AppRefreshService } from '../../../core/services/app-refresh.service';
 
 @Component({
   selector: 'app-stock-receive',
@@ -75,6 +76,7 @@ export class StockReceiveComponent implements OnInit, OnChanges, OnDestroy {
     private productService: ProductService,
     private inventoryService: InventoryService,
     private transactionReferenceService: TransactionReferenceService,
+    private appRefreshService: AppRefreshService,
     private cdr: ChangeDetectorRef
   ) {
     this.form = this.fb.group({
@@ -201,6 +203,7 @@ export class StockReceiveComponent implements OnInit, OnChanges, OnDestroy {
             },
             { emitEvent: false }
           );
+          this.appRefreshService.request('stock-received', ['dashboard', 'inventory', 'products', 'transactions', 'shop']);
           this.receivePosted.emit(result);
           this.refreshUi();
         },

@@ -29,11 +29,12 @@
       <section class="nav-group" *ngFor="let group of navGroups">
         <p class="nav-section-label">{{ group.title }}</p>
         <nav class="nav-links">
-          <button
-            type="button"
+          <a
             class="nav-link-btn"
             *ngFor="let item of group.items"
-            (click)="switchSection(item.section)"
+            [routerLink]="[]"
+            [queryParams]="getSectionQueryParams(item.section)"
+            queryParamsHandling="merge"
             [class.active]="activeSection === item.section"
             [attr.title]="!sideNavOpen ? item.label : null"
             [attr.aria-label]="item.label"
@@ -43,7 +44,7 @@
               <strong>{{ item.label }}</strong>
               <span>{{ item.helper }}</span>
             </span>
-          </button>
+          </a>
         </nav>
       </section>
     </div>
@@ -298,11 +299,7 @@
       </ng-container>
 
       <section class="embedded-section" *ngSwitchCase="'stockReceive'">
-        <app-stock-receive
-          [embeddedMode]="true"
-          [reloadToken]="stockReceiveReloadToken"
-          (receivePosted)="onStockReceived()"
-        ></app-stock-receive>
+        <app-stock-receive [embeddedMode]="true" [reloadToken]="stockReceiveReloadToken"></app-stock-receive>
       </section>
 
       <section class="embedded-section" *ngSwitchCase="'products'">
@@ -362,11 +359,7 @@
       </section>
 
       <section class="embedded-section" *ngSwitchCase="'orders'">
-        <app-order-management
-          [embeddedMode]="true"
-          [reloadToken]="ordersReloadToken"
-          (ordersChanged)="onOrdersChanged()"
-        ></app-order-management>
+        <app-order-management [embeddedMode]="true" [reloadToken]="ordersReloadToken"></app-order-management>
       </section>
     </ng-container>
   </main>

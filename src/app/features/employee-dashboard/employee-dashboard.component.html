@@ -423,19 +423,11 @@
       </ng-container>
 
       <section class="embedded-section" *ngSwitchCase="'walkin'">
-        <app-walk-in-sale
-          [embeddedMode]="true"
-          [reloadToken]="walkInReloadToken"
-          (salePosted)="onWalkInSalePosted($event)"
-        ></app-walk-in-sale>
+        <app-walk-in-sale [embeddedMode]="true" [reloadToken]="walkInReloadToken"></app-walk-in-sale>
       </section>
 
       <section class="embedded-section" *ngSwitchCase="'issue'">
-        <app-patient-issue
-          [embeddedMode]="true"
-          [reloadToken]="patientIssueReloadToken"
-          (issuePosted)="onPatientIssuePosted($event)"
-        ></app-patient-issue>
+        <app-patient-issue [embeddedMode]="true" [reloadToken]="patientIssueReloadToken"></app-patient-issue>
       </section>
 
       <section class="embedded-section" *ngSwitchCase="'history'">

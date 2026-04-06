@@ -180,6 +180,10 @@ thead th {
   padding: 10px;
   border-bottom: 1px solid #f3d4d8;
   white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #fff7f8;
 }
 
 tbody td {
@@ -533,6 +537,42 @@ tbody td {
 
   .detail-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .table-card table thead {
+    display: none;
+  }
+
+  .table-card table,
+  .table-card table tbody,
+  .table-card table tr,
+  .table-card table td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .table-card table tr {
+    padding: 16px;
+    border-bottom: 1px solid #f3d4d8;
+  }
+
+  .table-card table td {
+    display: grid;
+    grid-template-columns: minmax(90px, 116px) minmax(0, 1fr);
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 0;
+    white-space: normal;
+  }
+
+  .table-card table td::before {
+    content: attr(data-label);
+    color: #8e4b5b;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
   }
 }
 

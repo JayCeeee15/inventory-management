@@ -20,6 +20,16 @@ html, body {
   color: var(--app-text);
 }
 
+html {
+  scroll-behavior: smooth;
+  overflow-y: scroll;
+}
+
+body {
+  min-height: 100%;
+  overflow-x: clip;
+}
+
 /* Success and error snackbar styles */
 .success-snackbar {
   background: #14532d;

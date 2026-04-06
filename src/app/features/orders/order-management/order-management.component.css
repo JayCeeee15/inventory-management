@@ -64,7 +64,8 @@
   border-radius: 14px;
   background: #fff;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 10px;
   flex-wrap: wrap;
 }
@@ -72,6 +73,14 @@
 .state {
   margin: 0;
   color: #7a3b44;
+}
+
+.state-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: min(100%, 520px);
+  flex: 1 1 320px;
 }
 
 .state.success {
@@ -82,14 +91,51 @@
   color: #b91c1c;
 }
 
+.state-detail {
+  margin: 0;
+  color: #8f646b;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
 .retry-btn {
   min-width: auto;
   height: 32px;
 }
 
+.table-skeleton {
+  display: grid;
+  gap: 10px;
+  padding: 10px 4px 6px;
+}
+
+.skeleton-row {
+  display: grid;
+  grid-template-columns: 1.4fr 0.9fr 0.9fr 0.8fr 0.7fr 0.7fr 0.8fr 1fr;
+  gap: 10px;
+}
+
+.skeleton-row-header {
+  margin-bottom: 4px;
+}
+
+.skeleton-cell {
+  height: 18px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #f8dfe4 25%, #fff5f7 50%, #f8dfe4 75%);
+  background-size: 220% 100%;
+  animation: orders-skeleton-wave 1.15s ease-in-out infinite;
+}
+
+.skeleton-row-header .skeleton-cell {
+  height: 12px;
+}
+
 .table-wrap,
 .detail-table-wrap {
   overflow: auto;
+  border-radius: 18px;
 }
 
 table {
@@ -112,6 +158,9 @@ th {
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 td small {
@@ -266,5 +315,67 @@ td small {
   .filters-row,
   .detail-grid {
     grid-template-columns: 1fr;
+  }
+
+  .table-card table thead {
+    display: none;
+  }
+
+  .table-card table,
+  .table-card table tbody,
+  .table-card table tr,
+  .table-card table td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .table-card table tr {
+    padding: 16px;
+    border-bottom: 1px solid #f4d5da;
+  }
+
+  .table-card table td {
+    display: grid;
+    grid-template-columns: minmax(86px, 110px) minmax(0, 1fr);
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 0;
+    white-space: normal;
+  }
+
+  .table-card table td::before {
+    content: attr(data-label);
+    color: #8f646b;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .actions {
+    justify-content: flex-start;
+  }
+
+  .state-panel {
+    align-items: stretch;
+  }
+
+  .skeleton-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .detail-footer {
+    align-items: flex-start;
+  }
+}
+
+@keyframes orders-skeleton-wave {
+  0% {
+    background-position: 100% 0;
+  }
+
+  100% {
+    background-position: -100% 0;
   }
 }

@@ -76,6 +76,18 @@ export interface CustomerOrderResult {
   status: string;
 }
 
+export interface CustomerOrderHistoryItem {
+  id: number;
+  orderNo: string;
+  customerName: string;
+  mobileNumber: string;
+  fulfillmentMethod: 'pickup' | 'delivery';
+  totalAmount: number;
+  itemCount: number;
+  status: string;
+  createdAt: string;
+}
+
 export interface AdminOrderSummary {
   id: number;
   orderNo: string;
@@ -158,6 +170,18 @@ export class ShopService {
 
   constructor(private http: HttpClient) {}
 
+  getAdminOrdersEndpoint(): string {
+    return `${this.BASE_URL}/orders`;
+  }
+
+  getAdminOrderDetailEndpoint(orderId: number): string {
+    return `${this.BASE_URL}/orders/${orderId}`;
+  }
+
+  getAdminOrderStatusEndpoint(orderId: number): string {
+    return `${this.BASE_URL}/orders/${orderId}/status`;
+  }
+
   getPublicLocations(): Observable<ShopLocation[]> {
     return this.http.get<LocationsResponse>(`${this.BASE_URL}/public/locations`).pipe(
       map(response => (Array.isArray(response?.locations) ? response.locations.map(row => this.mapLocation(row)) : []))
@@ -205,6 +229,16 @@ export class ShopService {
   createPublicOrder(input: CustomerOrderInput): Observable<CustomerOrderResult> {
     return this.http.post<OrderResponse>(`${this.BASE_URL}/public/orders`, input).pipe(
       map(response => this.mapCustomerOrderResult(response?.order))
+    );
+  }
+
+  getCustomerOrderHistory(limit = 6): Observable<CustomerOrderHistoryItem[]> {
+    const params = new HttpParams().set('limit', String(limit));
+
+    return this.http.get<OrdersResponse>(`${this.BASE_URL}/my/orders`, { params }).pipe(
+      map(response =>
+        Array.isArray(response?.orders) ? response.orders.map(row => this.mapCustomerOrderHistoryItem(row)) : []
+      )
     );
   }
 
@@ -363,6 +397,21 @@ export class ShopService {
       totalAmount: Number(value['totalAmount'] ?? value['total_amount'] ?? 0),
       itemCount: Number(value['itemCount'] ?? value['item_count'] ?? 0),
       status: String(value['status'] ?? '')
+    };
+  }
+
+  private mapCustomerOrderHistoryItem(row: unknown): CustomerOrderHistoryItem {
+    const value = (row || {}) as Record<string, unknown>;
+    return {
+      id: Number(value['id'] ?? 0),
+      orderNo: String(value['orderNo'] ?? value['order_no'] ?? ''),
+      customerName: String(value['customerName'] ?? value['customer_name'] ?? ''),
+      mobileNumber: String(value['mobileNumber'] ?? value['mobile_number'] ?? ''),
+      fulfillmentMethod: this.mapFulfillmentMethod(value['fulfillmentMethod'] ?? value['fulfillment_method']),
+      totalAmount: Number(value['totalAmount'] ?? value['total_amount'] ?? 0),
+      itemCount: Number(value['itemCount'] ?? value['item_count'] ?? 0),
+      status: String(value['status'] ?? ''),
+      createdAt: String(value['createdAt'] ?? value['created_at'] ?? '')
     };
   }
 

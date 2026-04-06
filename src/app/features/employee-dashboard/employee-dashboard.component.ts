@@ -20,10 +20,8 @@ import { MatCardModule } from '@angular/material/card';
 import { AuthService } from '../../core/services/auth.service';
 import {
   InventoryService,
-  PatientIssueResult,
   StockGraphPoint,
-  StockMovement,
-  WalkInSaleResult
+  StockMovement
 } from '../../core/services/inventory.service';
 import { WalkInSaleComponent } from '../transactions/walk-in-sale/walk-in-sale.component';
 import { PatientIssueComponent } from '../transactions/patient-issue/patient-issue.component';
@@ -32,6 +30,7 @@ import { ProductListComponent } from '../products/product-list/product-list.comp
 import { CategoryListComponent } from '../categories/category-list/category-list.component';
 import { CategoryFormComponent } from '../categories/category-form/category-form.component';
 import { APP_LOCALE } from '../../shared/utils/locale-format';
+import { AppRefreshEvent, AppRefreshService } from '../../core/services/app-refresh.service';
 
 interface CalendarEntry {
   id: number;
@@ -137,6 +136,7 @@ export class EmployeeDashboardComponent implements OnInit, OnDestroy {
   private static readonly LIVE_REFRESH_INTERVAL_MS = 15000;
   private loadSub?: Subscription;
   private liveRefreshSub?: Subscription;
+  private refreshEventsSub?: Subscription;
   private currentLoadId = 0;
   private destroyed = false;
   private autoRetryUsed = false;
@@ -301,6 +301,7 @@ export class EmployeeDashboardComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     private authService: AuthService,
     private inventoryService: InventoryService,
+    private appRefreshService: AppRefreshService,
     private cdr: ChangeDetectorRef
   ) {
     this.profileForm = this.fb.nonNullable.group({
@@ -312,6 +313,7 @@ export class EmployeeDashboardComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.applyCurrentUserProfile();
+    this.bindRefreshEvents();
     this.loadDashboardData();
     this.syncLiveRefreshState();
   }
@@ -320,6 +322,7 @@ export class EmployeeDashboardComponent implements OnInit, OnDestroy {
     this.destroyed = true;
     this.loadSub?.unsubscribe();
     this.liveRefreshSub?.unsubscribe();
+    this.refreshEventsSub?.unsubscribe();
     this.clearProfilePreviewObjectUrl();
   }
 
@@ -391,18 +394,6 @@ export class EmployeeDashboardComponent implements OnInit, OnDestroy {
   onTitleImageError(): void {
     this.titleImageVisible = false;
     this.refreshUi();
-  }
-
-  onWalkInSalePosted(_result: WalkInSaleResult): void {
-    this.historyReloadToken++;
-    this.productListReloadToken++;
-    this.refreshDashboardData();
-  }
-
-  onPatientIssuePosted(_result: PatientIssueResult): void {
-    this.historyReloadToken++;
-    this.productListReloadToken++;
-    this.refreshDashboardData();
   }
 
   openCategoryCreate(): void {
@@ -810,6 +801,34 @@ export class EmployeeDashboardComponent implements OnInit, OnDestroy {
       }
       this.loadDashboardData();
     });
+  }
+
+  private bindRefreshEvents(): void {
+    this.refreshEventsSub?.unsubscribe();
+    this.refreshEventsSub = this.appRefreshService.refresh$.subscribe(event => this.handleRefreshEvent(event));
+  }
+
+  private handleRefreshEvent(event: AppRefreshEvent): void {
+    if (this.appRefreshService.matches(event, ['inventory', 'products', 'transactions', 'orders', 'shop'])) {
+      this.productListReloadToken++;
+    }
+
+    if (this.appRefreshService.matches(event, ['transactions', 'inventory', 'orders', 'shop'])) {
+      this.historyReloadToken++;
+    }
+
+    if (this.appRefreshService.matches(event, ['categories'])) {
+      this.categoryListReloadToken++;
+    }
+
+    if (
+      this.appRefreshService.matches(event, ['dashboard', 'inventory', 'products', 'categories', 'transactions', 'orders', 'shop']) &&
+      !this.loading
+    ) {
+      this.loadDashboardData();
+    }
+
+    this.refreshUi();
   }
 
   private refreshUi(): void {

@@ -29,6 +29,7 @@ import {
 } from '../../../core/services/inventory.service';
 import { TransactionReferenceService } from '../../../core/services/transaction-reference.service';
 import { APP_LOCALE, formatPeso } from '../../../shared/utils/locale-format';
+import { AppRefreshService } from '../../../core/services/app-refresh.service';
 
 type MovementTypeFilter =
   | ''
@@ -138,6 +139,7 @@ export class TransactionHistoryComponent implements OnInit, OnChanges, OnDestroy
     private authService: AuthService,
     private transactionReferenceService: TransactionReferenceService,
     private inventoryService: InventoryService,
+    private appRefreshService: AppRefreshService,
     @Inject(PLATFORM_ID) private platformId: object,
     private cdr: ChangeDetectorRef
   ) {
@@ -757,6 +759,7 @@ export class TransactionHistoryComponent implements OnInit, OnChanges, OnDestroy
     }
 
     this.successMessage = `${prefixMessage} Next Patient ID: ${result.nextPatientId}.`;
+    this.appRefreshService.request('sale-history-reset', ['dashboard', 'inventory', 'products', 'transactions', 'shop']);
     this.runMovementsLoad('query-change');
   }
 
@@ -778,6 +781,7 @@ export class TransactionHistoryComponent implements OnInit, OnChanges, OnDestroy
       `Deleted ${formattedType}${referenceSuffix} successfully. ` +
       `${deletedCount} history record${deletedCount === 1 ? '' : 's'} removed.` +
       patientSuffix;
+    this.appRefreshService.request('transaction-deleted', ['dashboard', 'inventory', 'products', 'transactions', 'shop']);
     this.runMovementsLoad('query-change');
   }
 
@@ -806,6 +810,7 @@ export class TransactionHistoryComponent implements OnInit, OnChanges, OnDestroy
       `(${clearedSales} sales, ${clearedIssues} patient issues). ` +
       `${remainingTransactions} transaction${remainingTransactions === 1 ? '' : 's'} remaining. ` +
       `Next Patient ID: ${result.nextPatientId}.`;
+    this.appRefreshService.request('transaction-history-cleared', ['dashboard', 'inventory', 'products', 'transactions', 'shop']);
     this.refreshUi();
     this.runMovementsLoad('query-change');
   }

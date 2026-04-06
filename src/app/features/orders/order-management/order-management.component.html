@@ -40,17 +40,35 @@
     </div>
   </mat-card>
 
-  <div class="state-panel" *ngIf="loading || errorMessage || successMessage">
-    <p class="state" *ngIf="loading">Loading customer orders...</p>
-    <p class="state success" *ngIf="!loading && successMessage">{{ successMessage }}</p>
-    <p class="state error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
-    <button mat-stroked-button type="button" class="retry-btn" (click)="retryLoad()" [disabled]="loading || actionLoading">
+  <div class="state-panel" *ngIf="loading">
+    <p class="state">Loading customer orders...</p>
+  </div>
+
+  <div class="state-panel" *ngIf="!loading && successMessage">
+    <p class="state success">{{ successMessage }}</p>
+  </div>
+
+  <div class="state-panel" *ngIf="!loading && errorMessage">
+    <div class="state-copy">
+      <p class="state error">{{ errorMessage }}</p>
+      <p class="state-detail" *ngIf="errorDetail">{{ errorDetail }}</p>
+    </div>
+    <button mat-stroked-button type="button" class="retry-btn" (click)="retryLoad()" [disabled]="actionLoading">
       Retry
     </button>
   </div>
 
   <mat-card class="table-card">
-    <div class="table-wrap" *ngIf="orders.length > 0; else emptyState">
+    <div class="table-skeleton" *ngIf="loading && orders.length === 0" aria-hidden="true">
+      <div class="skeleton-row skeleton-row-header">
+        <span class="skeleton-cell" *ngFor="let _ of skeletonColumns"></span>
+      </div>
+      <div class="skeleton-row" *ngFor="let _ of skeletonRows">
+        <span class="skeleton-cell" *ngFor="let __ of skeletonColumns"></span>
+      </div>
+    </div>
+
+    <div class="table-wrap" *ngIf="orders.length > 0">
       <table>
         <thead>
           <tr>
@@ -67,17 +85,17 @@
         </thead>
         <tbody>
           <tr *ngFor="let order of orders; trackBy: trackByOrderId">
-            <td>
+            <td data-label="Order Ref">
               <button type="button" class="order-link" (click)="openOrder(order)">{{ order.orderNo }}</button>
             </td>
-            <td>{{ order.customerName }}</td>
-            <td>{{ order.mobileNumber }}</td>
-            <td>{{ order.fulfillmentMethod | titlecase }}</td>
-            <td>{{ order.itemCount }} / {{ order.totalQuantity }}</td>
-            <td>{{ formatMoney(order.totalAmount) }}</td>
-            <td><span class="status-pill" [attr.data-status]="order.status">{{ order.status | titlecase }}</span></td>
-            <td>{{ order.createdAt | date: 'MMM d, y h:mm a' }}</td>
-            <td class="actions">
+            <td data-label="Customer">{{ order.customerName }}</td>
+            <td data-label="Mobile">{{ order.mobileNumber }}</td>
+            <td data-label="Method">{{ order.fulfillmentMethod | titlecase }}</td>
+            <td data-label="Items">{{ order.itemCount }} / {{ order.totalQuantity }}</td>
+            <td data-label="Total">{{ formatMoney(order.totalAmount) }}</td>
+            <td data-label="Status"><span class="status-pill" [attr.data-status]="order.status">{{ order.status | titlecase }}</span></td>
+            <td data-label="Created">{{ order.createdAt | date: 'MMM d, y h:mm a' }}</td>
+            <td class="actions" data-label="Actions">
               <button
                 *ngIf="canApprove(order)"
                 mat-stroked-button
@@ -114,9 +132,9 @@
       </table>
     </div>
 
-    <ng-template #emptyState>
+    <ng-container *ngIf="showEmptyState">
       <p class="empty">No customer orders found for the current filters.</p>
-    </ng-template>
+    </ng-container>
 
     <div class="pager" *ngIf="total > 0">
       <p>Page {{ page }} of {{ totalPages }}</p>
@@ -139,7 +157,10 @@
 
       <div class="detail-state" *ngIf="detailLoading || detailErrorMessage">
         <p class="state" *ngIf="detailLoading">Loading order details...</p>
-        <p class="state error" *ngIf="!detailLoading && detailErrorMessage">{{ detailErrorMessage }}</p>
+        <div class="state-copy" *ngIf="!detailLoading && detailErrorMessage">
+          <p class="state error">{{ detailErrorMessage }}</p>
+          <p class="state-detail" *ngIf="detailErrorDetail">{{ detailErrorDetail }}</p>
+        </div>
       </div>
 
       <div class="detail-content" *ngIf="!detailLoading && selectedOrder as order">

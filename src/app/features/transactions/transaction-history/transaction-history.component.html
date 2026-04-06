@@ -142,18 +142,18 @@
         </thead>
         <tbody>
           <tr *ngFor="let movement of movements; trackBy: trackByMovementId">
-            <td>{{ movement.createdAt | date: 'MMM d, y h:mm a' }}</td>
-            <td>
+            <td data-label="Date">{{ movement.createdAt | date: 'MMM d, y h:mm a' }}</td>
+            <td data-label="Type">
               <span class="type-pill">{{ formatMovementType(movement.movementType) }}</span>
             </td>
-            <td>{{ movement.productName }}</td>
-            <td>{{ movement.locationName || 'General' }}</td>
-            <td [class.qty-out]="movement.quantity < 0" [class.qty-in]="movement.quantity > 0">
+            <td data-label="Product">{{ movement.productName }}</td>
+            <td data-label="Location">{{ movement.locationName || 'General' }}</td>
+            <td data-label="Qty" [class.qty-out]="movement.quantity < 0" [class.qty-in]="movement.quantity > 0">
               {{ movement.quantity }}
             </td>
-            <td>{{ movement.patientId || '-' }}</td>
-            <td>{{ movement.patientName || '-' }}</td>
-            <td>
+            <td data-label="Patient ID">{{ movement.patientId || '-' }}</td>
+            <td data-label="Patient Name">{{ movement.patientName || '-' }}</td>
+            <td data-label="Reference">
               <button
                 *ngIf="canOpenReferenceDetails(movement); else plainReference"
                 type="button"
@@ -166,8 +166,8 @@
                 {{ getReferenceLabel(movement) }}
               </ng-template>
             </td>
-            <td>{{ movement.createdBy?.username || 'System' }}</td>
-            <td *ngIf="canManageTransactions">
+            <td data-label="User">{{ movement.createdBy?.username || 'System' }}</td>
+            <td *ngIf="canManageTransactions" data-label="Actions">
               <button
                 *ngIf="canDeleteMovement(movement)"
                 mat-stroked-button

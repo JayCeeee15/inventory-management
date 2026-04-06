@@ -1,6 +1,7 @@
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
+import { ActivatedRoute, Params, Router, RouterLink } from '@angular/router';
 import {
   Observable,
   Subscription,
@@ -28,6 +29,7 @@ import { CategoryFormComponent } from '../categories/category-form/category-form
 import { StockReceiveComponent } from '../transactions/stock-receive/stock-receive.component';
 import { OrderManagementComponent } from '../orders/order-management/order-management.component';
 import { APP_LOCALE } from '../../shared/utils/locale-format';
+import { AppRefreshEvent, AppRefreshService } from '../../core/services/app-refresh.service';
 
 interface ActivityItem {
   action: string;
@@ -118,6 +120,7 @@ interface AdminNavGroup {
   standalone: true,
   imports: [
     CommonModule,
+    RouterLink,
     MatCardModule,
     MatButtonModule,
     TransactionHistoryComponent,
@@ -136,6 +139,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private static readonly LIVE_REFRESH_INTERVAL_MS = 15000;
   private loadSub?: Subscription;
   private liveRefreshSub?: Subscription;
+  private refreshEventsSub?: Subscription;
+  private routeSectionSub?: Subscription;
   private currentLoadId = 0;
   private destroyed = false;
   private autoRetryUsed = false;
@@ -306,22 +311,27 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private viewedMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 
   constructor(
+    private router: Router,
+    private route: ActivatedRoute,
     private authService: AuthService,
     private productService: ProductService,
     private inventoryService: InventoryService,
+    private appRefreshService: AppRefreshService,
     private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
     this.applyCurrentUserProfile();
-    this.loadDashboardData();
-    this.syncLiveRefreshState();
+    this.bindRefreshEvents();
+    this.bindRouteSection();
   }
 
   ngOnDestroy(): void {
     this.destroyed = true;
     this.loadSub?.unsubscribe();
     this.liveRefreshSub?.unsubscribe();
+    this.refreshEventsSub?.unsubscribe();
+    this.routeSectionSub?.unsubscribe();
   }
 
   get filteredOverviewTransactions(): OverviewTransactionRow[] {
@@ -349,6 +359,27 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   switchSection(section: AdminSection): void {
+    this.navigateToSection(section);
+  }
+
+  getSectionQueryParams(section: AdminSection): Params {
+    return section === 'overview' ? { section: null } : { section };
+  }
+
+  private navigateToSection(section: AdminSection): void {
+    if (this.activeSection === section) {
+      this.activateSection(section);
+      return;
+    }
+
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: this.getSectionQueryParams(section),
+      queryParamsHandling: 'merge'
+    });
+  }
+
+  private activateSection(section: AdminSection): void {
     if (section === 'products') {
       this.productListReloadToken++;
     }
@@ -400,17 +431,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   refreshDashboardData(): void {
     this.loadDashboardData();
-  }
-
-  onStockReceived(): void {
-    this.productListReloadToken++;
-    this.historyReloadToken++;
-    this.refreshDashboardData();
-  }
-
-  onOrdersChanged(): void {
-    this.historyReloadToken++;
-    this.refreshDashboardData();
   }
 
   onLogoImageError(): void {
@@ -648,6 +668,65 @@ export class DashboardComponent implements OnInit, OnDestroy {
       }
       this.loadDashboardData();
     });
+  }
+
+  private bindRefreshEvents(): void {
+    this.refreshEventsSub?.unsubscribe();
+    this.refreshEventsSub = this.appRefreshService.refresh$.subscribe(event => this.handleRefreshEvent(event));
+  }
+
+  private bindRouteSection(): void {
+    this.routeSectionSub?.unsubscribe();
+    this.routeSectionSub = this.route.queryParamMap.subscribe(params => {
+      const section = this.parseSectionParam(params.get('section'));
+      this.activateSection(section);
+    });
+  }
+
+  private parseSectionParam(value: string | null): AdminSection {
+    const candidate = String(value || '').trim();
+    const allowedSections: readonly AdminSection[] = [
+      'overview',
+      'stockReceive',
+      'products',
+      'productCreate',
+      'productEdit',
+      'categories',
+      'categoryCreate',
+      'categoryEdit',
+      'history',
+      'orders'
+    ];
+
+    return allowedSections.includes(candidate as AdminSection) ? (candidate as AdminSection) : 'overview';
+  }
+
+  private handleRefreshEvent(event: AppRefreshEvent): void {
+    if (this.appRefreshService.matches(event, ['inventory', 'products', 'transactions', 'orders', 'shop'])) {
+      this.productListReloadToken++;
+      this.stockReceiveReloadToken++;
+    }
+
+    if (this.appRefreshService.matches(event, ['transactions', 'inventory', 'orders', 'shop'])) {
+      this.historyReloadToken++;
+    }
+
+    if (this.appRefreshService.matches(event, ['orders', 'shop'])) {
+      this.ordersReloadToken++;
+    }
+
+    if (this.appRefreshService.matches(event, ['categories'])) {
+      this.categoryListReloadToken++;
+    }
+
+    if (
+      this.appRefreshService.matches(event, ['dashboard', 'inventory', 'products', 'categories', 'transactions', 'orders', 'shop']) &&
+      !this.loading
+    ) {
+      this.loadDashboardData();
+    }
+
+    this.refreshUi();
   }
 
   private refreshUi(): void {

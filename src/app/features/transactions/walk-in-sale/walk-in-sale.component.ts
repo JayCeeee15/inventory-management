@@ -35,6 +35,7 @@ import {
 } from '../../../core/services/inventory.service';
 import { TransactionReferenceService } from '../../../core/services/transaction-reference.service';
 import { formatPeso } from '../../../shared/utils/locale-format';
+import { AppRefreshService } from '../../../core/services/app-refresh.service';
 
 @Component({
   selector: 'app-walk-in-sale',
@@ -88,6 +89,7 @@ export class WalkInSaleComponent implements OnInit, OnChanges, OnDestroy {
     private productService: ProductService,
     private inventoryService: InventoryService,
     private transactionReferenceService: TransactionReferenceService,
+    private appRefreshService: AppRefreshService,
     private cdr: ChangeDetectorRef
   ) {
     this.form = this.fb.group({
@@ -248,6 +250,7 @@ export class WalkInSaleComponent implements OnInit, OnChanges, OnDestroy {
             `Saved successfully. Walk-in sale posted. Ref: ${result.saleNo} | Patient ID: ${result.patientId} | Change: ` +
             `${formatPeso(result.changeAmount)}`;
           this.resetForm();
+          this.appRefreshService.request('walk-in-sale-posted', ['dashboard', 'inventory', 'products', 'transactions', 'shop']);
           this.salePosted.emit(result);
           this.runLoad('input-change', true);
           this.refreshUi();

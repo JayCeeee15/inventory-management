@@ -1,5 +1,5 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { Component, Inject, OnDestroy, OnInit, PLATFORM_ID } from '@angular/core';
+import { AfterViewInit, Component, HostListener, Inject, OnDestroy, OnInit, PLATFORM_ID, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
@@ -18,6 +18,7 @@ import {
 } from 'rxjs';
 import { AuthService, User } from '../../core/services/auth.service';
 import {
+  CustomerOrderHistoryItem,
   CustomerOrderInput,
   ShopCategory,
   ShopLocation,
@@ -25,6 +26,7 @@ import {
   ShopService
 } from '../../core/services/shop.service';
 import { APP_LOCALE, formatPeso } from '../../shared/utils/locale-format';
+import { AppRefreshEvent, AppRefreshService } from '../../core/services/app-refresh.service';
 
 interface NavLink {
   label: string;
@@ -59,9 +61,13 @@ interface CheckoutState {
   templateUrl: './home.component.html',
   styleUrls: ['./home.component.css']
 })
-export class HomeComponent implements OnInit, OnDestroy {
+export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
   private static readonly LOAD_TIMEOUT_MS = 12000;
   private static readonly LIVE_REFRESH_MS = 15000;
+  private static readonly CART_STORAGE_KEY = 'public_shop_cart';
+  private static readonly GUEST_CHECKOUT_STORAGE_KEY = 'public_shop_guest_checkout';
+  private static readonly CUSTOMER_ORDER_HISTORY_LIMIT = 6;
+  private static readonly SECTION_SCROLL_PADDING_PX = 12;
 
   private readonly isBrowser: boolean;
   private readonly searchTerm$ = new Subject<string>();
@@ -69,16 +75,23 @@ export class HomeComponent implements OnInit, OnDestroy {
   private catalogSub?: Subscription;
   private orderSub?: Subscription;
   private refreshSub?: Subscription;
+  private appRefreshSub?: Subscription;
   private searchSub?: Subscription;
+  private customerOrdersSub?: Subscription;
+  private sectionObserver?: IntersectionObserver;
+  private scrollMetricTimer: number | null = null;
+  private sectionTargetsVerified = false;
+  private checkoutStateHydrated = false;
+  private lastSessionSuggestedName = '';
 
   readonly heroImage = '/images/home-hero.png';
   readonly fallbackImage = '/inventory-front.svg';
   readonly navLinks: NavLink[] = [
-    { label: 'Home', targetId: 'hero-top' },
-    { label: 'Departments', targetId: 'department-board' },
-    { label: 'Categories', targetId: 'category-board' },
-    { label: 'Customer Shop', targetId: 'customer-shop' },
-    { label: 'Checkout', targetId: 'checkout-panel' }
+    { label: 'Home', targetId: 'homeSection' },
+    { label: 'Departments', targetId: 'departmentsSection' },
+    { label: 'Categories', targetId: 'categoriesSection' },
+    { label: 'Customer Shop', targetId: 'shopSection' },
+    { label: 'Checkout', targetId: 'checkoutSection' }
   ];
   readonly skeletonCards = Array.from({ length: 6 }, (_, index) => index);
 
@@ -87,6 +100,7 @@ export class HomeComponent implements OnInit, OnDestroy {
   products: ShopProduct[] = [];
   featuredProducts: ShopProduct[] = [];
   selectedProduct: ShopProduct | null = null;
+  customerOrders: CustomerOrderHistoryItem[] = [];
 
   selectedLocationId: number | null = null;
   selectedCategoryId: number | null = null;
@@ -100,33 +114,60 @@ export class HomeComponent implements OnInit, OnDestroy {
 
   detailOpen = false;
   detailQuantity = 1;
+  activeSectionId = 'homeSection';
+  headerHeightPx = 88;
+  navHeightPx = 66;
+  stickyStackHeightPx = 170;
 
   cartItems: CartItem[] = [];
   checkout: CheckoutState = this.createDefaultCheckoutState();
+  guestCheckoutDraft: CheckoutState = this.createDefaultCheckoutState();
 
   metaLoading = false;
   catalogLoading = false;
   catalogRefreshing = false;
   checkoutSubmitting = false;
-  filtersDrawerOpen = false;
-  cartDrawerOpen = false;
+  customerOrdersLoading = false;
 
   catalogError = '';
   checkoutError = '';
   checkoutSuccess = '';
+  customerOrdersError = '';
   lastSyncedLabel = 'Waiting for first sync';
 
   constructor(
     private readonly shopService: ShopService,
     private readonly authService: AuthService,
+    private readonly appRefreshService: AppRefreshService,
     @Inject(PLATFORM_ID) platformId: Object
   ) {
     this.isBrowser = isPlatformBrowser(platformId);
+
+    effect(() => {
+      const user = this.authService.currentUser();
+      if (!this.checkoutStateHydrated) {
+        return;
+      }
+
+      this.syncCheckoutIdentity(user);
+      this.syncCustomerOrderHistory(user);
+      this.scheduleScrollMetricUpdate();
+    });
+  }
+
+  ngAfterViewInit(): void {
+    this.verifySectionTargets();
+    this.scheduleScrollMetricUpdate();
   }
 
   ngOnInit(): void {
-    this.prefillCheckoutFromUser();
+    this.restoreGuestCheckoutDraft();
+    this.restoreCartItems();
+    this.checkoutStateHydrated = true;
+    this.syncCheckoutIdentity(this.currentUser);
+    this.syncCustomerOrderHistory(this.currentUser);
     this.bindSearchDebounce();
+    this.bindAppRefresh();
     this.loadMetaAndCatalog();
     this.startLiveRefresh();
   }
@@ -136,11 +177,33 @@ export class HomeComponent implements OnInit, OnDestroy {
     this.catalogSub?.unsubscribe();
     this.orderSub?.unsubscribe();
     this.refreshSub?.unsubscribe();
+    this.appRefreshSub?.unsubscribe();
     this.searchSub?.unsubscribe();
+    this.customerOrdersSub?.unsubscribe();
+    this.sectionObserver?.disconnect();
+
+    if (this.scrollMetricTimer !== null && this.isBrowser) {
+      window.clearTimeout(this.scrollMetricTimer);
+      this.scrollMetricTimer = null;
+    }
+  }
+
+  @HostListener('window:resize')
+  onViewportResize(): void {
+    this.scheduleScrollMetricUpdate();
   }
 
   get currentUser(): User | null {
     return this.authService.currentUser();
+  }
+
+  get currentUserDisplayName(): string {
+    const user = this.currentUser;
+    if (!user) {
+      return '';
+    }
+
+    return user.fullName?.trim() || user.username;
   }
 
   get cartItemCount(): number {
@@ -170,6 +233,10 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     return this.authService.getDashboardRoute(user);
+  }
+
+  get isCustomerSession(): boolean {
+    return this.currentUser?.role === 'customer';
   }
 
   get canSubmitOrder(): boolean {
@@ -208,10 +275,6 @@ export class HomeComponent implements OnInit, OnDestroy {
     return !this.catalogLoading && !this.catalogError && this.products.length === 0;
   }
 
-  get showDrawerBackdrop(): boolean {
-    return this.isCompactViewport() && (this.filtersDrawerOpen || this.cartDrawerOpen);
-  }
-
   onSearchTermChange(value: string): void {
     this.searchTerm = value;
     this.page = 1;
@@ -222,14 +285,22 @@ export class HomeComponent implements OnInit, OnDestroy {
     this.selectedLocationId = locationId;
     this.page = 1;
     this.loadCatalog();
-    this.closeDrawers();
+  }
+
+  selectLocationAndScroll(locationId: number | null): void {
+    this.selectLocation(locationId);
+    this.scrollToSection('shopSection');
   }
 
   selectCategory(categoryId: number | null): void {
     this.selectedCategoryId = categoryId;
     this.page = 1;
     this.loadCatalog();
-    this.closeDrawers();
+  }
+
+  selectCategoryAndScroll(categoryId: number | null): void {
+    this.selectCategory(categoryId);
+    this.scrollToSection('shopSection');
   }
 
   clearCatalogFilters(): void {
@@ -238,7 +309,6 @@ export class HomeComponent implements OnInit, OnDestroy {
     this.selectedLocationId = null;
     this.page = 1;
     this.loadCatalog();
-    this.closeDrawers();
   }
 
   prevPage(): void {
@@ -261,27 +331,6 @@ export class HomeComponent implements OnInit, OnDestroy {
 
   retryCatalogLoad(): void {
     this.loadCatalog();
-  }
-
-  openFiltersDrawer(): void {
-    if (!this.isCompactViewport()) {
-      return;
-    }
-    this.filtersDrawerOpen = true;
-    this.cartDrawerOpen = false;
-  }
-
-  openCartDrawer(): void {
-    if (!this.isCompactViewport()) {
-      return;
-    }
-    this.cartDrawerOpen = true;
-    this.filtersDrawerOpen = false;
-  }
-
-  closeDrawers(): void {
-    this.filtersDrawerOpen = false;
-    this.cartDrawerOpen = false;
   }
 
   openProductDetails(product: ShopProduct): void {
@@ -324,9 +373,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     if (existingItem) {
       existingItem.quantity = Math.min(existingItem.quantity + quantity, product.qtyAvailable);
       existingItem.qtyAvailable = product.qtyAvailable;
-      if (this.isCompactViewport()) {
-        this.cartDrawerOpen = true;
-      }
+      this.persistCartItems();
       return;
     }
 
@@ -345,9 +392,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         qtyAvailable: product.qtyAvailable
       }
     ];
-    if (this.isCompactViewport()) {
-      this.cartDrawerOpen = true;
-    }
+    this.persistCartItems();
   }
 
   addSelectedProductToCart(): void {
@@ -357,21 +402,24 @@ export class HomeComponent implements OnInit, OnDestroy {
 
     this.addProductToCart(this.selectedProduct, this.detailQuantity);
     this.closeProductDetails();
-    this.scrollToSection('checkout-panel');
+    this.scrollToSection('checkoutSection');
   }
 
   updateCartQuantity(item: CartItem, rawValue: string | number): void {
     const quantity = Number(rawValue);
     if (!Number.isInteger(quantity) || quantity <= 0) {
       item.quantity = 1;
+      this.persistCartItems();
       return;
     }
 
     item.quantity = Math.min(quantity, Math.max(item.qtyAvailable, 1));
+    this.persistCartItems();
   }
 
   increaseCartQuantity(item: CartItem): void {
     item.quantity = Math.min(item.quantity + 1, Math.max(item.qtyAvailable, 1));
+    this.persistCartItems();
   }
 
   decreaseCartQuantity(item: CartItem): void {
@@ -381,12 +429,20 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     item.quantity -= 1;
+    this.persistCartItems();
   }
 
   removeCartItem(item: CartItem): void {
     this.cartItems = this.cartItems.filter(
       current => !(current.productId === item.productId && current.locationId === item.locationId)
     );
+    this.persistCartItems();
+  }
+
+  onCheckoutFieldChange(): void {
+    this.checkoutError = '';
+    this.checkoutSuccess = '';
+    this.persistGuestCheckoutDraft();
   }
 
   submitOrder(): void {
@@ -425,10 +481,11 @@ export class HomeComponent implements OnInit, OnDestroy {
         next: order => {
           this.checkoutSuccess = `Saved successfully. Order ${order.orderNo} is now pending review and the stock has been reserved.`;
           this.cartItems = [];
+          this.persistCartItems();
           this.resetCheckoutAfterSuccess();
-          this.loadCatalog(false, true);
-          this.closeDrawers();
-          this.scrollToSection('checkout-panel');
+          this.persistGuestCheckoutDraft();
+          this.scrollToSection('checkoutSection');
+          this.appRefreshService.request('public-order-created', ['dashboard', 'inventory', 'products', 'transactions', 'orders', 'shop']);
         },
         error: error => {
           this.checkoutError =
@@ -440,6 +497,8 @@ export class HomeComponent implements OnInit, OnDestroy {
   }
 
   logout(): void {
+    this.checkoutError = '';
+    this.checkoutSuccess = '';
     this.authService.logout();
   }
 
@@ -448,9 +507,29 @@ export class HomeComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const target = document.getElementById(targetId);
-    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    this.closeDrawers();
+    this.updateScrollMetrics();
+    const target = this.getSectionTarget(targetId);
+    if (!target) {
+      return;
+    }
+
+    this.activeSectionId = targetId;
+
+    const sectionOffset = this.stickyStackHeightPx + HomeComponent.SECTION_SCROLL_PADDING_PX;
+    const scrollContainer = this.resolveScrollContainer(target);
+
+    if (scrollContainer) {
+      const containerRect = scrollContainer.getBoundingClientRect();
+      const top = Math.max(
+        0,
+        target.getBoundingClientRect().top - containerRect.top + scrollContainer.scrollTop - sectionOffset
+      );
+      scrollContainer.scrollTo({ top, behavior: 'smooth' });
+      return;
+    }
+
+    const top = Math.max(0, target.getBoundingClientRect().top + window.scrollY - sectionOffset);
+    window.scrollTo({ top, behavior: 'smooth' });
   }
 
   useFallbackImage(event: Event): void {
@@ -466,6 +545,15 @@ export class HomeComponent implements OnInit, OnDestroy {
 
   formatMoney(value: number): string {
     return formatPeso(value);
+  }
+
+  formatOrderStatus(value: string): string {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) {
+      return 'Pending';
+    }
+
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
   }
 
   getCartLineTotal(item: CartItem): number {
@@ -488,6 +576,10 @@ export class HomeComponent implements OnInit, OnDestroy {
     return `${item.productId}-${item.locationId}`;
   }
 
+  trackByOrderId(_index: number, order: CustomerOrderHistoryItem): number {
+    return order.id;
+  }
+
   private createDefaultCheckoutState(): CheckoutState {
     return {
       customerName: '',
@@ -504,13 +596,162 @@ export class HomeComponent implements OnInit, OnDestroy {
       .subscribe(() => this.loadCatalog());
   }
 
-  private prefillCheckoutFromUser(): void {
-    const user = this.currentUser;
-    if (!user) {
+  private bindAppRefresh(): void {
+    this.appRefreshSub?.unsubscribe();
+    this.appRefreshSub = this.appRefreshService.refresh$.subscribe(event => this.handleAppRefresh(event));
+  }
+
+  private scheduleScrollMetricUpdate(): void {
+    if (!this.isBrowser) {
       return;
     }
 
-    this.checkout.customerName = user.fullName || user.username;
+    if (this.scrollMetricTimer !== null) {
+      window.clearTimeout(this.scrollMetricTimer);
+    }
+
+    this.scrollMetricTimer = window.setTimeout(() => {
+      this.scrollMetricTimer = null;
+      this.updateScrollMetrics();
+      this.registerSectionObserver();
+    }, 0);
+  }
+
+  private updateScrollMetrics(): void {
+    if (!this.isBrowser) {
+      return;
+    }
+
+    const stickyStack = document.querySelector<HTMLElement>('.top-stack');
+    const header = document.querySelector<HTMLElement>('.utility-header');
+    const nav = document.querySelector<HTMLElement>('.main-nav');
+    const headerHeight = Math.ceil(header?.getBoundingClientRect().height ?? 88);
+    const navHeight = Math.ceil(nav?.getBoundingClientRect().height ?? 66);
+    const stackHeight = Math.ceil(stickyStack?.getBoundingClientRect().height ?? headerHeight + navHeight);
+
+    this.headerHeightPx = headerHeight;
+    this.navHeightPx = navHeight;
+    this.stickyStackHeightPx = stackHeight;
+  }
+
+  private registerSectionObserver(): void {
+    if (!this.isBrowser || typeof IntersectionObserver === 'undefined') {
+      return;
+    }
+
+    this.sectionObserver?.disconnect();
+
+    const sections = Array.from(document.querySelectorAll<HTMLElement>('[data-scroll-section]'));
+    if (sections.length === 0) {
+      return;
+    }
+
+    const scrollContainer = this.resolveScrollContainer(sections[0]);
+
+    this.sectionObserver = new IntersectionObserver(
+      entries => {
+        const visibleEntries = entries
+          .filter(entry => entry.isIntersecting && entry.target instanceof HTMLElement)
+          .sort((left, right) => right.intersectionRatio - left.intersectionRatio);
+
+        const nextSectionId = visibleEntries[0]?.target?.id;
+        if (nextSectionId) {
+          this.activeSectionId = nextSectionId;
+        }
+      },
+      {
+        root: scrollContainer,
+        threshold: [0.2, 0.35, 0.55, 0.75],
+        rootMargin: `-${this.stickyStackHeightPx + HomeComponent.SECTION_SCROLL_PADDING_PX}px 0px -30% 0px`
+      }
+    );
+
+    sections.forEach(section => this.sectionObserver?.observe(section));
+  }
+
+  private getSectionTarget(targetId: string): HTMLElement | null {
+    const target = document.getElementById(targetId);
+    if (target) {
+      return target;
+    }
+
+    console.warn(`[HomeComponent] Unable to find scroll target with id "${targetId}".`);
+    return null;
+  }
+
+  private verifySectionTargets(): void {
+    if (!this.isBrowser || this.sectionTargetsVerified) {
+      return;
+    }
+
+    this.sectionTargetsVerified = true;
+    const missingTargetIds = this.navLinks
+      .map(link => link.targetId)
+      .filter(targetId => !document.getElementById(targetId));
+
+    if (missingTargetIds.length > 0) {
+      console.warn(
+        `[HomeComponent] Missing section ids for navbar scroll targets: ${missingTargetIds.join(', ')}.`
+      );
+    }
+  }
+
+  private resolveScrollContainer(target: HTMLElement | null): HTMLElement | null {
+    if (!target) {
+      return null;
+    }
+
+    const ancestorContainer = this.findScrollableAncestor(target);
+    if (ancestorContainer) {
+      return ancestorContainer;
+    }
+
+    for (const selector of ['.portal-shell', '.page', '.content', '.landing-shell', '.app-shell', '.home-page']) {
+      const candidate = document.querySelector<HTMLElement>(selector);
+      if (candidate && this.isScrollableContainer(candidate)) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  private findScrollableAncestor(target: HTMLElement): HTMLElement | null {
+    let current: HTMLElement | null = target.parentElement;
+
+    while (current) {
+      if (this.isScrollableContainer(current)) {
+        return current;
+      }
+
+      if (current === document.body) {
+        break;
+      }
+
+      current = current.parentElement;
+    }
+
+    return null;
+  }
+
+  private isScrollableContainer(element: HTMLElement): boolean {
+    if (element === document.body) {
+      return element.scrollHeight > element.clientHeight + 1;
+    }
+
+    if (this.isDocumentScroller(element)) {
+      return false;
+    }
+
+    const styles = window.getComputedStyle(element);
+    const overflowValue = `${styles.overflow} ${styles.overflowY}`;
+    const allowsScrolling = /(auto|scroll|overlay)/.test(overflowValue);
+
+    return allowsScrolling && element.scrollHeight > element.clientHeight + 1;
+  }
+
+  private isDocumentScroller(element: HTMLElement): boolean {
+    return element === document.documentElement;
   }
 
   private loadMetaAndCatalog(): void {
@@ -593,6 +834,84 @@ export class HomeComponent implements OnInit, OnDestroy {
       });
   }
 
+  private loadCustomerOrderHistory(): void {
+    if (!this.isCustomerSession) {
+      this.customerOrders = [];
+      this.customerOrdersError = '';
+      this.customerOrdersLoading = false;
+      return;
+    }
+
+    this.customerOrdersSub?.unsubscribe();
+    this.customerOrdersLoading = true;
+    this.customerOrdersError = '';
+
+    this.customerOrdersSub = this.shopService
+      .getCustomerOrderHistory(HomeComponent.CUSTOMER_ORDER_HISTORY_LIMIT)
+      .pipe(
+        timeout(HomeComponent.LOAD_TIMEOUT_MS),
+        retry({ count: 1, delay: () => timer(250) }),
+        finalize(() => (this.customerOrdersLoading = false))
+      )
+      .subscribe({
+        next: orders => {
+          this.customerOrders = orders;
+        },
+        error: error => {
+          this.customerOrders = [];
+          this.customerOrdersError =
+            typeof error?.error?.message === 'string'
+              ? error.error.message
+              : 'Unable to load your order history right now.';
+        }
+      });
+  }
+
+  private syncCustomerOrderHistory(user: User | null): void {
+    if (user?.role === 'customer') {
+      this.loadCustomerOrderHistory();
+      return;
+    }
+
+    this.customerOrdersSub?.unsubscribe();
+    this.customerOrders = [];
+    this.customerOrdersError = '';
+    this.customerOrdersLoading = false;
+  }
+
+  private syncCheckoutIdentity(user: User | null): void {
+    const previousSuggestedName = this.lastSessionSuggestedName;
+    const nextSuggestedName = user ? (user.fullName?.trim() || user.username?.trim() || '') : '';
+
+    if (!user) {
+      if (!this.checkout.customerName.trim() || this.checkout.customerName.trim() === previousSuggestedName) {
+        this.checkout.customerName = this.guestCheckoutDraft.customerName;
+      }
+
+      if (!this.checkout.mobileNumber.trim()) {
+        this.checkout.mobileNumber = this.guestCheckoutDraft.mobileNumber;
+      }
+
+      if (!this.checkout.deliveryAddress.trim()) {
+        this.checkout.deliveryAddress = this.guestCheckoutDraft.deliveryAddress;
+      }
+
+      if (!this.checkout.notes.trim()) {
+        this.checkout.notes = this.guestCheckoutDraft.notes;
+      }
+
+      this.checkout.fulfillmentMethod = this.guestCheckoutDraft.fulfillmentMethod;
+      this.lastSessionSuggestedName = '';
+      return;
+    }
+
+    if (!this.checkout.customerName.trim() || this.checkout.customerName.trim() === previousSuggestedName) {
+      this.checkout.customerName = nextSuggestedName;
+    }
+
+    this.lastSessionSuggestedName = nextSuggestedName;
+  }
+
   private syncCartAvailability(products: ShopProduct[]): void {
     const availabilityMap = new Map<string, ShopProduct>();
     for (const product of products) {
@@ -620,6 +939,8 @@ export class HomeComponent implements OnInit, OnDestroy {
         };
       })
       .filter((item): item is CartItem => item !== null);
+
+    this.persistCartItems();
   }
 
   private syncSelectedProduct(products: ShopProduct[]): void {
@@ -647,6 +968,21 @@ export class HomeComponent implements OnInit, OnDestroy {
     });
   }
 
+  private handleAppRefresh(event: AppRefreshEvent): void {
+    if (this.appRefreshService.matches(event, ['categories', 'products'])) {
+      this.loadMetaAndCatalog();
+      return;
+    }
+
+    if (this.appRefreshService.matches(event, ['inventory', 'transactions', 'orders', 'shop'])) {
+      this.loadCatalog(true, true);
+    }
+
+    if (this.isCustomerSession && this.appRefreshService.matches(event, ['orders', 'shop'])) {
+      this.loadCustomerOrderHistory();
+    }
+  }
+
   private resetCheckoutAfterSuccess(): void {
     const preservedName = this.checkout.customerName;
     const preservedMobile = this.checkout.mobileNumber;
@@ -655,11 +991,118 @@ export class HomeComponent implements OnInit, OnDestroy {
     this.checkout.mobileNumber = preservedMobile;
   }
 
-  private isValidMobileNumber(value: string): boolean {
-    return /^09\d{9}$/.test(value.trim());
+  private restoreCartItems(): void {
+    if (!this.isBrowser) {
+      return;
+    }
+
+    try {
+      const storedValue = localStorage.getItem(HomeComponent.CART_STORAGE_KEY);
+      if (!storedValue) {
+        return;
+      }
+
+      const parsed = JSON.parse(storedValue) as unknown[];
+      const restoredItems = Array.isArray(parsed) ? parsed.map(value => this.mapStoredCartItem(value)).filter(Boolean) : [];
+      this.cartItems = restoredItems as CartItem[];
+    } catch {
+      this.cartItems = [];
+      localStorage.removeItem(HomeComponent.CART_STORAGE_KEY);
+    }
   }
 
-  private isCompactViewport(): boolean {
-    return this.isBrowser && window.innerWidth <= 840;
+  private persistCartItems(): void {
+    if (!this.isBrowser) {
+      return;
+    }
+
+    localStorage.setItem(HomeComponent.CART_STORAGE_KEY, JSON.stringify(this.cartItems));
+  }
+
+  private restoreGuestCheckoutDraft(): void {
+    if (!this.isBrowser) {
+      return;
+    }
+
+    try {
+      const storedValue = localStorage.getItem(HomeComponent.GUEST_CHECKOUT_STORAGE_KEY);
+      if (!storedValue) {
+        this.guestCheckoutDraft = this.createDefaultCheckoutState();
+        this.checkout = { ...this.guestCheckoutDraft };
+        return;
+      }
+
+      const parsed = JSON.parse(storedValue);
+      this.guestCheckoutDraft = this.mapStoredCheckoutState(parsed);
+      this.checkout = { ...this.guestCheckoutDraft };
+    } catch {
+      this.guestCheckoutDraft = this.createDefaultCheckoutState();
+      this.checkout = { ...this.guestCheckoutDraft };
+      localStorage.removeItem(HomeComponent.GUEST_CHECKOUT_STORAGE_KEY);
+    }
+  }
+
+  private persistGuestCheckoutDraft(): void {
+    if (!this.isBrowser || this.currentUser) {
+      return;
+    }
+
+    this.guestCheckoutDraft = {
+      customerName: this.checkout.customerName,
+      mobileNumber: this.checkout.mobileNumber,
+      fulfillmentMethod: this.checkout.fulfillmentMethod,
+      deliveryAddress: this.checkout.deliveryAddress,
+      notes: this.checkout.notes
+    };
+
+    localStorage.setItem(HomeComponent.GUEST_CHECKOUT_STORAGE_KEY, JSON.stringify(this.guestCheckoutDraft));
+  }
+
+  private mapStoredCartItem(value: unknown): CartItem | null {
+    const item = (value || {}) as Partial<CartItem>;
+    const productId = Number(item.productId ?? 0);
+    const locationId = Number(item.locationId ?? 0);
+    const quantity = Number(item.quantity ?? 0);
+    const qtyAvailable = Number(item.qtyAvailable ?? 0);
+    const price = Number(item.price ?? 0);
+
+    if (
+      !Number.isInteger(productId) ||
+      productId <= 0 ||
+      !Number.isInteger(locationId) ||
+      locationId <= 0 ||
+      !Number.isInteger(quantity) ||
+      quantity <= 0
+    ) {
+      return null;
+    }
+
+    return {
+      productId,
+      locationId,
+      sku: String(item.sku ?? ''),
+      name: String(item.name ?? ''),
+      categoryName: String(item.categoryName ?? ''),
+      locationName: String(item.locationName ?? ''),
+      unit: String(item.unit ?? ''),
+      price: Number.isFinite(price) ? price : 0,
+      quantity,
+      qtyAvailable: Number.isFinite(qtyAvailable) && qtyAvailable > 0 ? qtyAvailable : quantity
+    };
+  }
+
+  private mapStoredCheckoutState(value: unknown): CheckoutState {
+    const stored = (value || {}) as Partial<CheckoutState>;
+    return {
+      customerName: String(stored.customerName ?? ''),
+      mobileNumber: String(stored.mobileNumber ?? ''),
+      fulfillmentMethod: stored.fulfillmentMethod === 'delivery' ? 'delivery' : 'pickup',
+      deliveryAddress: String(stored.deliveryAddress ?? ''),
+      notes: String(stored.notes ?? '')
+    };
+  }
+
+  private isValidMobileNumber(value: string): boolean {
+    return /^09\d{9}$/.test(value.trim());
   }
 }

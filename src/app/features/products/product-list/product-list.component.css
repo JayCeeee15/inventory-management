@@ -48,6 +48,9 @@
 
 .table-wrap {
   overflow: auto;
+  border: 1px solid #f3d6db;
+  border-radius: 18px;
+  background: #fff;
 }
 
 .products-table {
@@ -61,6 +64,7 @@
   border-bottom: 1px solid #f0c4cb;
   text-align: left;
   white-space: nowrap;
+  vertical-align: top;
 }
 
 .products-table th {
@@ -69,6 +73,9 @@
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .actions {
@@ -122,6 +129,34 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
+  gap: 8px;
+}
+
+.table-summary,
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  color: #7a3b44;
+}
+
+.table-summary {
+  padding-bottom: 10px;
+}
+
+.pager {
+  border-top: 1px solid #f3d6db;
+}
+
+.pager p {
+  margin: 0;
+}
+
+.pager-controls {
+  display: flex;
   gap: 8px;
 }
 
@@ -181,20 +216,68 @@
     grid-template-columns: 1fr;
   }
 
-  .actions {
-    text-align: left;
-  }
-
-  .actions button {
-    margin-left: 0;
-    margin-right: 8px;
-  }
-
   .drawer-overlay {
     grid-template-columns: 1fr;
   }
 
   .drawer-panel {
     width: min(100%, 100vw);
+  }
+}
+
+@media (max-width: 760px) {
+  .product-page {
+    padding: 16px;
+  }
+
+  .page-header,
+  .table-summary,
+  .pager {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .products-table thead {
+    display: none;
+  }
+
+  .products-table,
+  .products-table tbody,
+  .products-table tr,
+  .products-table td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .products-table tr {
+    padding: 16px;
+    border-bottom: 1px solid #f0c4cb;
+  }
+
+  .products-table td {
+    display: grid;
+    grid-template-columns: minmax(88px, 110px) minmax(0, 1fr);
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 0;
+    white-space: normal;
+  }
+
+  .products-table td::before {
+    content: attr(data-label);
+    color: #8b5f66;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .actions {
+    text-align: left;
+  }
+
+  .actions button {
+    margin: 0 8px 8px 0;
   }
 }

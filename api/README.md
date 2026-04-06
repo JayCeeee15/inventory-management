@@ -26,6 +26,14 @@ This creates database schema and seeds:
 - products
 - inventory stock
 
+If you already have the exported hospital MySQL dump, use the project-local dump folder instead:
+
+```bash
+npm run db:import:hospital
+```
+
+The dump files live in `api/sql/hospital_inventory`. Set `DB_NAME` in `.env` to the database you want to import into, such as `hospital_inventory`.
+
 Core tables created:
 
 - `users`, `login_logs`

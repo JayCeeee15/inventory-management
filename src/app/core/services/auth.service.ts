@@ -1,8 +1,8 @@
-import { Injectable, Inject, PLATFORM_ID, signal } from '@angular/core';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, catchError, map, of, throwError, timeout } from 'rxjs';
-import { Router } from '@angular/router';
+import { Inject, Injectable, PLATFORM_ID, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Router } from '@angular/router';
+import { Observable, catchError, finalize, map, of, shareReplay, throwError, timeout } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export type UserRole = 'admin' | 'employee' | 'customer';
@@ -51,6 +51,10 @@ interface AuthApiResponse {
   accessToken: string;
 }
 
+interface AuthMeResponse {
+  user: AuthResponseUser;
+}
+
 interface AuthHealthResponse {
   status?: string;
   service?: string;
@@ -90,6 +94,7 @@ export class AuthService {
   private readonly AUTH_API_URL = `${environment.apiUrl}/auth`;
   private readonly TOKEN_KEY = 'auth_token';
   private readonly USER_KEY = 'current_user';
+  private readonly SESSION_VALIDATE_TIMEOUT_MS = 7000;
   private readonly isBrowser: boolean;
 
   private readonly FALLBACK_USERS: FallbackUser[] = [
@@ -114,7 +119,13 @@ export class AuthService {
   ];
 
   private currentUserSignal = signal<User | null>(null);
+  private sessionResolvedSignal = signal(false);
+  private sessionCheckingSignal = signal(false);
+  private sessionValidation$?: Observable<User | null>;
+
   public currentUser = this.currentUserSignal.asReadonly();
+  public sessionResolved = this.sessionResolvedSignal.asReadonly();
+  public sessionChecking = this.sessionCheckingSignal.asReadonly();
 
   constructor(
     private http: HttpClient,
@@ -122,7 +133,13 @@ export class AuthService {
     @Inject(PLATFORM_ID) platformId: Object
   ) {
     this.isBrowser = isPlatformBrowser(platformId);
-    this.loadStoredUser();
+
+    if (!this.isBrowser) {
+      this.sessionResolvedSignal.set(true);
+      return;
+    }
+
+    this.bootstrapStoredSession();
   }
 
   login(credentials: LoginCredentials): Observable<User> {
@@ -250,28 +267,70 @@ export class AuthService {
     );
   }
 
-  logout(): void {
-    if (this.isBrowser) {
-      localStorage.removeItem(this.TOKEN_KEY);
-      localStorage.removeItem(this.USER_KEY);
-      localStorage.removeItem('isLoggedIn');
-      localStorage.removeItem('username');
+  ensureSession(options: { force?: boolean } = {}): Observable<User | null> {
+    if (!this.isBrowser) {
+      this.currentUserSignal.set(null);
+      this.sessionResolvedSignal.set(true);
+      return of(null);
     }
 
-    this.currentUserSignal.set(null);
+    const token = this.getStoredToken();
+    if (!token) {
+      this.clearSessionState(true);
+      this.sessionResolvedSignal.set(true);
+      return of(null);
+    }
+
+    if (!options.force && this.currentUserSignal()) {
+      this.sessionResolvedSignal.set(true);
+      return of(this.currentUserSignal());
+    }
+
+    if (!options.force && this.sessionValidation$) {
+      return this.sessionValidation$;
+    }
+
+    this.sessionResolvedSignal.set(false);
+    this.sessionCheckingSignal.set(true);
+
+    const request$ = this.http.get<AuthMeResponse>(`${this.AUTH_API_URL}/me`).pipe(
+      timeout(this.SESSION_VALIDATE_TIMEOUT_MS),
+      map(response => {
+        if (token !== this.getStoredToken()) {
+          return null;
+        }
+
+        return this.applyValidatedSession(response, token);
+      }),
+      catchError(error => this.handleSessionValidationError(error)),
+      finalize(() => {
+        this.sessionCheckingSignal.set(false);
+        this.sessionResolvedSignal.set(true);
+        this.sessionValidation$ = undefined;
+      }),
+      shareReplay(1)
+    );
+
+    this.sessionValidation$ = request$;
+    return request$;
+  }
+
+  logout(): void {
+    this.clearSessionState(true);
+    this.sessionResolvedSignal.set(true);
     this.router.navigate(['/']);
   }
 
   isAuthenticated(): boolean {
-    return !!this.getToken();
+    return !!this.currentUserSignal();
+  }
+
+  hasStoredToken(): boolean {
+    return !!this.getStoredToken();
   }
 
   getToken(): string | null {
-    if (!this.isBrowser) {
-      return null;
-    }
-
-    return localStorage.getItem(this.TOKEN_KEY);
+    return this.getStoredToken();
   }
 
   getDashboardRoute(user: User | null): string {
@@ -299,18 +358,31 @@ export class AuthService {
       throw new Error('AUTH_UNAVAILABLE');
     }
 
-    const user: User = {
-      id: Number(response.user.id),
-      username: String(response.user.username),
-      fullName: String(response.user.fullName || response.user.username || '').trim(),
-      email: String(response.user.email || '').trim().toLowerCase(),
-      avatarUrl: response.user.avatarUrl ? String(response.user.avatarUrl) : null,
-      token: String(response.accessToken),
-      role: normalizeUserRole(response.user.role)
-    };
-
+    const user = this.mapUser(response.user, String(response.accessToken));
     this.setSession(user);
     return user;
+  }
+
+  private applyValidatedSession(response: AuthMeResponse, token: string): User {
+    if (!response?.user) {
+      throw new Error('AUTH_UNAVAILABLE');
+    }
+
+    const user = this.mapUser(response.user, token);
+    this.setSession(user);
+    return user;
+  }
+
+  private mapUser(user: AuthResponseUser, token: string): User {
+    return {
+      id: Number(user.id),
+      username: String(user.username),
+      fullName: String(user.fullName || user.username || '').trim(),
+      email: String(user.email || '').trim().toLowerCase(),
+      avatarUrl: user.avatarUrl ? String(user.avatarUrl) : null,
+      token,
+      role: normalizeUserRole(user.role)
+    };
   }
 
   private setSession(user: User): void {
@@ -322,39 +394,58 @@ export class AuthService {
     }
 
     this.currentUserSignal.set(user);
+    this.sessionResolvedSignal.set(true);
   }
 
-  private loadStoredUser(): void {
+  private bootstrapStoredSession(): void {
+    if (!this.hasStoredToken()) {
+      this.clearSessionStorage();
+      this.sessionResolvedSignal.set(true);
+      return;
+    }
+
+    this.ensureSession().subscribe({
+      next: () => undefined,
+      error: () => undefined
+    });
+  }
+
+  private handleSessionValidationError(error: unknown): Observable<User | null> {
+    if (error instanceof HttpErrorResponse && (error.status === 401 || error.status === 403)) {
+      this.clearSessionState(true);
+      return of(null);
+    }
+
+    this.currentUserSignal.set(null);
+    return of(null);
+  }
+
+  private clearSessionState(clearStorage: boolean): void {
+    if (clearStorage) {
+      this.clearSessionStorage();
+    }
+
+    this.currentUserSignal.set(null);
+    this.sessionValidation$ = undefined;
+  }
+
+  private clearSessionStorage(): void {
     if (!this.isBrowser) {
       return;
     }
 
-    const userStr = localStorage.getItem(this.USER_KEY);
-    const token = localStorage.getItem(this.TOKEN_KEY);
+    localStorage.removeItem(this.TOKEN_KEY);
+    localStorage.removeItem(this.USER_KEY);
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('username');
+  }
 
-    if (!userStr || !token) {
-      return;
+  private getStoredToken(): string | null {
+    if (!this.isBrowser) {
+      return null;
     }
 
-    try {
-      const parsedUser = JSON.parse(userStr) as Partial<User>;
-
-      const user: User = {
-        id: Number(parsedUser.id ?? 0),
-        username: String(parsedUser.username ?? ''),
-        fullName: String(parsedUser.fullName ?? parsedUser.username ?? '').trim(),
-        email: String(parsedUser.email ?? '').trim().toLowerCase(),
-        avatarUrl: parsedUser.avatarUrl ? String(parsedUser.avatarUrl) : null,
-        token: String(token),
-        role: normalizeUserRole(parsedUser.role)
-      };
-
-      if (user.id && user.username && user.token) {
-        this.currentUserSignal.set(user);
-      }
-    } catch (error) {
-      console.error('Failed to parse stored user', error);
-    }
+    return localStorage.getItem(this.TOKEN_KEY);
   }
 
   private handleAuthError(error: unknown, isLoginRequest: boolean): Observable<never> {

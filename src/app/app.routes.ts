@@ -52,7 +52,7 @@ export const routes: Routes = [
   },
   {
     path: 'transactions/history',
-    canActivate: [authGuard, navigationDelayGuard],
+    canActivate: [authGuard, roleGuard(['admin', 'employee']), navigationDelayGuard],
     loadComponent: () =>
       import('./features/transactions/transaction-history/transaction-history.component').then(
         m => m.TransactionHistoryComponent

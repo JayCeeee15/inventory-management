@@ -33,6 +33,7 @@ import {
   InventoryTransactionItemInput
 } from '../../../core/services/inventory.service';
 import { TransactionReferenceService } from '../../../core/services/transaction-reference.service';
+import { AppRefreshService } from '../../../core/services/app-refresh.service';
 
 @Component({
   selector: 'app-patient-issue',
@@ -74,6 +75,7 @@ export class PatientIssueComponent implements OnInit, OnChanges, OnDestroy {
     private fb: FormBuilder,
     private inventoryService: InventoryService,
     private transactionReferenceService: TransactionReferenceService,
+    private appRefreshService: AppRefreshService,
     private cdr: ChangeDetectorRef
   ) {
     this.form = this.fb.group({
@@ -173,6 +175,7 @@ export class PatientIssueComponent implements OnInit, OnChanges, OnDestroy {
         next: result => {
           this.successMessage = `Saved successfully. Patient issue posted. Reference: ${result.issueNo}`;
           this.resetForm();
+          this.appRefreshService.request('patient-issue-posted', ['dashboard', 'inventory', 'products', 'transactions', 'shop']);
           this.issuePosted.emit(result);
           this.runLoad('input-change', true);
           this.refreshUi();

@@ -23,14 +23,14 @@
         <input
           matInput
           [(ngModel)]="searchTerm"
-          (ngModelChange)="applyFilters()"
+          (ngModelChange)="currentPage = 1; applyFilters()"
           placeholder="Item, category, supplier"
         />
       </mat-form-field>
 
       <mat-form-field appearance="outline" class="filter-field">
         <mat-label>Category</mat-label>
-        <select matNativeControl [(ngModel)]="categoryFilter" (ngModelChange)="applyFilters()">
+        <select matNativeControl [(ngModel)]="categoryFilter" (ngModelChange)="currentPage = 1; applyFilters()">
           <option value="all">All categories</option>
           <option *ngFor="let category of categories" [value]="category">{{ category }}</option>
         </select>
@@ -58,6 +58,11 @@
     </div>
 
     <div class="table-wrap" *ngIf="!loading && !errorMessage">
+      <div class="table-summary" *ngIf="filteredProducts.length > 0">
+        <span>Showing {{ startItem }}-{{ endItem }} of {{ filteredProducts.length }} items</span>
+        <span>Page {{ currentPage }} of {{ totalPages }}</span>
+      </div>
+
       <table class="products-table" *ngIf="filteredProducts.length > 0; else emptyState">
         <thead>
           <tr>
@@ -73,21 +78,21 @@
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let product of filteredProducts; trackBy: trackByProductId">
-            <td>
+          <tr *ngFor="let product of paginatedProducts; trackBy: trackByProductId">
+            <td data-label="Item">
               <strong>{{ product.name }}</strong>
               <div>{{ product.sku }}</div>
             </td>
-            <td>{{ product.categoryName }}</td>
-            <td>{{ product.unit }}</td>
-            <td>{{ product.qtyOnHand }}</td>
-            <td>{{ product.qtyReserved }}</td>
-            <td>
+            <td data-label="Category">{{ product.categoryName }}</td>
+            <td data-label="Unit">{{ product.unit }}</td>
+            <td data-label="On Hand">{{ product.qtyOnHand }}</td>
+            <td data-label="Reserved">{{ product.qtyReserved }}</td>
+            <td data-label="Available">
               <span class="qty" [class.low]="isLowStock(product)">{{ product.qtyAvailable }}</span>
             </td>
-            <td>{{ product.reorderLevel }}</td>
-            <td>{{ product.price | currency : 'PHP' : 'symbol' : '1.2-2' }}</td>
-            <td *ngIf="canManage" class="actions">
+            <td data-label="Reorder">{{ product.reorderLevel }}</td>
+            <td data-label="Unit Cost">{{ product.price | currency : 'PHP' : 'symbol' : '1.2-2' }}</td>
+            <td *ngIf="canManage" class="actions" data-label="Actions">
               <button
                 *ngIf="embeddedMode"
                 mat-stroked-button
@@ -109,6 +114,23 @@
       <ng-template #emptyState>
         <div class="state">No inventory items found for the current filters.</div>
       </ng-template>
+
+      <div class="pager" *ngIf="filteredProducts.length > 0">
+        <p>Page {{ currentPage }} of {{ totalPages }}</p>
+        <div class="pager-controls">
+          <button mat-stroked-button type="button" (click)="prevPage()" [disabled]="currentPage <= 1 || loading">
+            Previous
+          </button>
+          <button
+            mat-stroked-button
+            type="button"
+            (click)="nextPage()"
+            [disabled]="currentPage >= totalPages || loading"
+          >
+            Next
+          </button>
+        </div>
+      </div>
     </div>
   </mat-card>
 

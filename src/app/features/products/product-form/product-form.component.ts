@@ -23,6 +23,7 @@ import { ProductCreateInput, ProductUpdateInput } from '../../../shared/models/p
 import { CategoryService } from '../../../core/services/category.service';
 import { Category } from '../../../shared/models/category.model';
 import { InventoryLocation, InventoryService } from '../../../core/services/inventory.service';
+import { AppRefreshService } from '../../../core/services/app-refresh.service';
 
 interface ProductFormCompletedEvent {
   mode: 'create' | 'edit';
@@ -79,6 +80,7 @@ export class ProductFormComponent implements OnInit, OnChanges, OnDestroy {
     private productService: ProductService,
     private categoryService: CategoryService,
     private inventoryService: InventoryService,
+    private appRefreshService: AppRefreshService,
     private cdr: ChangeDetectorRef
   ) {
     this.form = this.fb.group({
@@ -358,6 +360,10 @@ export class ProductFormComponent implements OnInit, OnChanges, OnDestroy {
 
   private handleSaveSuccess(): void {
     const productName = String(this.form.get('name')?.value ?? '').trim();
+    this.appRefreshService.request(
+      this.isEditMode ? 'product-updated' : 'product-created',
+      ['dashboard', 'inventory', 'products', 'shop']
+    );
 
     if (this.embeddedMode) {
       this.formCompleted.emit({

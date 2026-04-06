@@ -19,6 +19,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { CategoryService } from '../../../core/services/category.service';
 import { CategoryFormData } from '../../../shared/models/category.model';
+import { AppRefreshService } from '../../../core/services/app-refresh.service';
 
 @Component({
   selector: 'app-category-form',
@@ -175,6 +176,7 @@ export class CategoryFormComponent implements OnInit, OnChanges, OnDestroy {
     private route: ActivatedRoute,
     private router: Router,
     private categoryService: CategoryService,
+    private appRefreshService: AppRefreshService,
     private cdr: ChangeDetectorRef
   ) {
     this.form = this.fb.group({
@@ -359,6 +361,11 @@ export class CategoryFormComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   private handleSaveSuccess(): void {
+    this.appRefreshService.request(
+      this.isEditMode ? 'category-updated' : 'category-created',
+      ['dashboard', 'categories', 'products', 'shop']
+    );
+
     if (this.embeddedMode) {
       this.formCompleted.emit();
 

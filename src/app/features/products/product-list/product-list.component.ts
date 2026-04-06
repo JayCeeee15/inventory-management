@@ -20,6 +20,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { ProductService } from '../../../core/services/product.service';
 import { Product } from '../../../shared/models/product.model';
 import { ProductFormComponent } from '../product-form/product-form.component';
+import { AppRefreshService } from '../../../core/services/app-refresh.service';
 
 interface ProductEditorCompletedEvent {
   mode: 'create' | 'edit';
@@ -44,6 +45,7 @@ interface ProductEditorCompletedEvent {
 })
 export class ProductListComponent implements OnInit, OnChanges, OnDestroy {
   private static readonly LOAD_TIMEOUT_MS = 8000;
+  private static readonly PAGE_SIZE = 10;
   private loadSub?: Subscription;
   private currentLoadId = 0;
   private initialized = false;
@@ -62,6 +64,7 @@ export class ProductListComponent implements OnInit, OnChanges, OnDestroy {
 
   searchTerm = '';
   categoryFilter = 'all';
+  currentPage = 1;
 
   categories: string[] = [];
   loading = false;
@@ -75,6 +78,7 @@ export class ProductListComponent implements OnInit, OnChanges, OnDestroy {
 
   constructor(
     private productService: ProductService,
+    private appRefreshService: AppRefreshService,
     private cdr: ChangeDetectorRef
   ) {}
 
@@ -100,6 +104,43 @@ export class ProductListComponent implements OnInit, OnChanges, OnDestroy {
 
   loadProducts(): void {
     this.runLoad('retry');
+  }
+
+  get paginatedProducts(): Product[] {
+    const start = (this.currentPage - 1) * ProductListComponent.PAGE_SIZE;
+    return this.filteredProducts.slice(start, start + ProductListComponent.PAGE_SIZE);
+  }
+
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.filteredProducts.length / ProductListComponent.PAGE_SIZE));
+  }
+
+  get startItem(): number {
+    if (this.filteredProducts.length === 0) {
+      return 0;
+    }
+
+    return (this.currentPage - 1) * ProductListComponent.PAGE_SIZE + 1;
+  }
+
+  get endItem(): number {
+    return Math.min(this.currentPage * ProductListComponent.PAGE_SIZE, this.filteredProducts.length);
+  }
+
+  prevPage(): void {
+    if (this.currentPage <= 1 || this.loading) {
+      return;
+    }
+
+    this.currentPage -= 1;
+  }
+
+  nextPage(): void {
+    if (this.currentPage >= this.totalPages || this.loading) {
+      return;
+    }
+
+    this.currentPage += 1;
   }
 
   private runLoad(reason: 'init' | 'input-change' | 'retry'): void {
@@ -188,11 +229,16 @@ export class ProductListComponent implements OnInit, OnChanges, OnDestroy {
 
       return matchesTerm && matchesCategory;
     });
+
+    if (this.currentPage > this.totalPages) {
+      this.currentPage = this.totalPages;
+    }
   }
 
   clearFilters(): void {
     this.searchTerm = '';
     this.categoryFilter = 'all';
+    this.currentPage = 1;
     this.applyFilters();
   }
 
@@ -239,6 +285,7 @@ export class ProductListComponent implements OnInit, OnChanges, OnDestroy {
         this.products = this.products.filter(p => p.id !== product.id);
         this.applyFilters();
         this.successMessage = `"${product.name}" was removed.`;
+        this.appRefreshService.request('product-deleted', ['dashboard', 'inventory', 'products', 'shop']);
         this.refreshUi();
       },
       error: () => {

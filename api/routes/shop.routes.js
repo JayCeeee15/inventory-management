@@ -16,14 +16,41 @@ function isDatabaseUnavailable(error) {
   return unavailableCodes.includes(error?.code);
 }
 
-function sendDatabaseError(res, error, fallbackMessage) {
-  console.error(fallbackMessage, error);
+function extractDatabaseErrorDetail(error) {
+  const code = typeof error?.code === 'string' ? error.code : null;
+  const detail =
+    (typeof error?.sqlMessage === 'string' && error.sqlMessage) ||
+    (typeof error?.message === 'string' && error.message) ||
+    'Unknown database error.';
+
+  return { code, detail };
+}
+
+function sendDatabaseError(res, error, fallbackMessage, context = {}) {
+  const diagnostic = extractDatabaseErrorDetail(error);
+
+  console.error(fallbackMessage, {
+    ...context,
+    code: diagnostic.code,
+    detail: diagnostic.detail,
+    stack: error?.stack
+  });
 
   if (isDatabaseUnavailable(error)) {
-    return res.status(503).json({ error: 'DB_UNAVAILABLE', message: 'Database service unavailable.' });
+    return res.status(503).json({
+      error: 'DB_UNAVAILABLE',
+      message: 'Database service unavailable.',
+      detail: diagnostic.detail,
+      code: diagnostic.code
+    });
   }
 
-  return res.status(500).json({ error: 'SHOP_ERROR', message: fallbackMessage });
+  return res.status(500).json({
+    error: 'SHOP_ERROR',
+    message: fallbackMessage,
+    detail: diagnostic.detail,
+    code: diagnostic.code
+  });
 }
 
 function normalizeText(value, maxLen = 255) {
@@ -703,6 +730,76 @@ shopRouter.post('/public/orders', async (req, res) => {
   }
 });
 
+shopRouter.get('/my/orders', requireAuth, requireRole('customer'), async (req, res) => {
+  const userId = Number(req.auth?.sub || 0);
+  const page = 1;
+  const limit = parsePositiveInt(req.query.limit, 6, 20);
+  const offset = 0;
+
+  if (!userId) {
+    return res.status(401).json({ error: 'UNAUTHORIZED', message: 'Invalid token payload.' });
+  }
+
+  try {
+    const [countRows] = await pool.execute(
+      `SELECT COUNT(*) AS total
+       FROM customer_orders
+       WHERE customer_user_id = ?`,
+      [userId]
+    );
+    const total = Number(countRows?.[0]?.total || 0);
+
+    const [rows] = await pool.execute(
+      `SELECT
+         o.id,
+         o.order_no,
+         o.customer_name,
+         o.mobile_number,
+         o.fulfillment_method,
+         o.total_amount,
+         o.status,
+         o.created_at,
+         COUNT(oi.id) AS item_count
+       FROM customer_orders o
+       LEFT JOIN customer_order_items oi ON oi.order_id = o.id
+       WHERE o.customer_user_id = ?
+       GROUP BY
+         o.id,
+         o.order_no,
+         o.customer_name,
+         o.mobile_number,
+         o.fulfillment_method,
+         o.total_amount,
+         o.status,
+         o.created_at
+       ORDER BY o.created_at DESC, o.id DESC
+       LIMIT ${limit} OFFSET ${offset}`,
+      [userId]
+    );
+
+    res.set('Cache-Control', 'no-store');
+    return res.json({
+      page,
+      limit,
+      total,
+      hasMore: offset + (Array.isArray(rows) ? rows.length : 0) < total,
+      orders: (Array.isArray(rows) ? rows : []).map(row => ({
+        id: Number(row.id),
+        orderNo: String(row.order_no),
+        customerName: String(row.customer_name),
+        mobileNumber: String(row.mobile_number),
+        fulfillmentMethod: String(row.fulfillment_method),
+        totalAmount: Number(row.total_amount || 0),
+        itemCount: Number(row.item_count || 0),
+        status: String(row.status),
+        createdAt: row.created_at
+      }))
+    });
+  } catch (error) {
+    return sendDatabaseError(res, error, 'Failed to load customer order history.');
+  }
+});
+
 shopRouter.get('/orders', requireAuth, requireRole('admin'), async (req, res) => {
   const page = parsePositiveInt(req.query.page, 1, 50000);
   const limit = parsePositiveInt(req.query.limit, 10, 100);
@@ -793,7 +890,14 @@ shopRouter.get('/orders', requireAuth, requireRole('admin'), async (req, res) =>
       }))
     });
   } catch (error) {
-    return sendDatabaseError(res, error, 'Failed to load customer orders.');
+    return sendDatabaseError(res, error, 'Failed to load customer orders.', {
+      route: 'GET /api/shop/orders',
+      adminUserId: Number(req.auth?.sub || 0) || null,
+      statusFilter: status || null,
+      search: search || null,
+      page,
+      limit
+    });
   }
 });
 

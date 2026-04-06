@@ -1,188 +1,201 @@
-<div class="home-page" id="hero-top">
-  <header class="utility-header">
-    <div class="brand-wrap">
-      <a routerLink="/" class="brand" aria-label="MediCross home">
-        <span class="cross-mark">+</span>
-        <span class="brand-copy">
-          <span class="brand-name"><span class="brand-main">MEDI</span><span class="brand-sub">CROSS</span></span>
-          <span class="tagline">Hospital Inventory Exchange</span>
-        </span>
-      </a>
-    </div>
-
-    <div class="utility-actions">
-      <button type="button" class="status-chip" (click)="scrollToSection('checkout-panel')">
-        Cart: {{ cartItemCount }} item{{ cartItemCount === 1 ? '' : 's' }}
-      </button>
-
-      <a *ngIf="dashboardRoute" [routerLink]="dashboardRoute" class="action-btn ghost">Open Dashboard</a>
-
-      <ng-container *ngIf="currentUser; else guestActions">
-        <button type="button" class="user-chip" (click)="scrollToSection('checkout-panel')">
-          {{ currentUser.fullName }}
-        </button>
-        <button type="button" class="action-btn solid" (click)="logout()">Log Out</button>
-      </ng-container>
-
-      <ng-template #guestActions>
-        <a routerLink="/login" class="action-btn ghost">Log In</a>
-        <a routerLink="/signup" class="action-btn solid">Sign Up</a>
-      </ng-template>
-    </div>
-  </header>
-
-  <nav class="main-nav" aria-label="Primary">
-    <button type="button" class="nav-item" *ngFor="let link of navLinks" (click)="scrollToSection(link.targetId)">
-      {{ link.label }}
-    </button>
-  </nav>
-
-  <section class="hero-grid">
-    <article class="hero-card">
-      <p class="eyebrow">Public Hospital Ordering Portal</p>
-      <h1>Buy medicine or other items now with live stock from the hospital inventory.</h1>
-      <p class="hero-copy">
-        Browse medicines, supplies, and equipment from the live catalog. Orders reserve stock immediately, stay pending
-        for admin review, and keep the public shop aligned with the same MySQL stock used by the dashboards.
-      </p>
-
-      <div class="hero-actions">
-        <button type="button" class="cta solid" (click)="scrollToSection('customer-shop')">
-          Buy medicine or other items now
-        </button>
-        <a *ngIf="dashboardRoute; else loginCta" [routerLink]="dashboardRoute" class="cta ghost">
-          Open {{ currentUser?.role === 'admin' ? 'Admin' : 'Staff' }} workspace
+<div
+  class="home-page"
+  [style.--home-header-height]="headerHeightPx + 'px'"
+  [style.--home-nav-height]="navHeightPx + 'px'"
+  [style.--home-sticky-stack]="stickyStackHeightPx + 'px'"
+>
+  <div class="top-stack">
+    <header class="utility-header">
+      <div class="brand-wrap">
+        <a routerLink="/" class="brand" aria-label="MediCross home">
+          <span class="cross-mark">+</span>
+          <span class="brand-copy">
+            <span class="brand-name"><span class="brand-main">MEDI</span><span class="brand-sub">CROSS</span></span>
+            <span class="tagline">Hospital Inventory Exchange</span>
+          </span>
         </a>
-        <ng-template #loginCta>
-          <a routerLink="/login" class="cta ghost">Log in to manage inventory</a>
+      </div>
+
+      <div class="utility-actions">
+        <button type="button" class="status-chip" (click)="scrollToSection('checkoutSection')">
+          Cart: {{ cartItemCount }} item{{ cartItemCount === 1 ? '' : 's' }}
+        </button>
+
+        <a *ngIf="dashboardRoute" [routerLink]="dashboardRoute" class="action-btn ghost">Open Dashboard</a>
+
+        <ng-container *ngIf="currentUser; else guestActions">
+          <button type="button" class="user-chip" (click)="scrollToSection('checkoutSection')">
+            {{ currentUserDisplayName }}
+          </button>
+          <button type="button" class="action-btn solid" (click)="logout()">Log Out</button>
+        </ng-container>
+
+        <ng-template #guestActions>
+          <a routerLink="/login" class="action-btn ghost">Log In</a>
+          <a routerLink="/signup" class="action-btn solid">Sign Up</a>
         </ng-template>
       </div>
+    </header>
 
-      <div class="hero-stats">
-        <article class="stat-card">
-          <span>Visible products</span>
-          <strong>{{ totalProducts }}</strong>
-          <small>Live MySQL catalog</small>
-        </article>
-        <article class="stat-card">
-          <span>Available units</span>
-          <strong>{{ totalAvailableUnits }}</strong>
-          <small>On-hand minus reserved</small>
-        </article>
-        <article class="stat-card">
-          <span>Sold out</span>
-          <strong>{{ soldOutCount }}</strong>
-          <small>Out-of-stock products today</small>
-        </article>
-      </div>
-    </article>
-
-    <aside class="hero-visual">
-      <div class="live-chip">
-        <span class="live-dot"></span>
-        Live inventory sync · {{ lastSyncedLabel }}
-      </div>
-      <img [src]="heroImage" (error)="useFallbackImage($event)" alt="Hospital care team" class="hero-image" />
-      <div class="hero-note">
-        <strong>{{ appliedLocation?.name || 'Automatic online department' }}</strong>
-        <span>Stock shown here is based on real available inventory after reservations.</span>
-      </div>
-    </aside>
-  </section>
-
-  <div class="mobile-controls">
-    <button type="button" class="mobile-pill" (click)="openFiltersDrawer()">Departments & Categories</button>
-    <button type="button" class="mobile-pill" (click)="openCartDrawer()">
-      Cart & Checkout · {{ cartItemCount }}
-    </button>
+    <nav class="main-nav" aria-label="Primary">
+      <button
+        type="button"
+        class="nav-item"
+        *ngFor="let link of navLinks"
+        [class.active]="activeSectionId === link.targetId"
+        [attr.aria-current]="activeSectionId === link.targetId ? 'true' : null"
+        (click)="scrollToSection(link.targetId)"
+      >
+        {{ link.label }}
+      </button>
+    </nav>
   </div>
 
-  <main class="shop-layout">
-    <aside class="shop-sidebar" [class.drawer-open]="filtersDrawerOpen">
-      <section class="side-panel compact-panel" id="department-board">
-        <div class="panel-head">
-          <h2>Departments</h2>
-          <span>{{ locations.length }}</span>
-        </div>
+  <main class="landing-shell">
+    <section class="hero-grid home-section hero-section" id="homeSection" data-scroll-section>
+      <article class="hero-card">
+        <p class="eyebrow">Public Hospital Ordering Portal</p>
+        <h1>Buy medicine or other items now with live stock from the hospital inventory.</h1>
+        <p class="hero-copy">
+          Browse medicines, supplies, and equipment from the live catalog. Orders reserve stock immediately, stay pending
+          for admin review, and keep the public shop aligned with the same MySQL stock used by the dashboards.
+        </p>
 
-        <div class="panel-list" [class.panel-list-loading]="metaLoading">
-          <button
-            type="button"
-            class="filter-link"
-            [class.active]="selectedLocationId === null"
-            (click)="selectLocation(null)"
-          >
-            <span>Automatic online stock</span>
-            <small>{{ appliedLocation?.name || 'Best available location' }}</small>
+        <div class="hero-actions">
+          <button type="button" class="cta solid" (click)="scrollToSection('shopSection')">
+            Buy medicine or other items now
           </button>
-
-          <button
-            type="button"
-            class="filter-link"
-            *ngFor="let location of locations; trackBy: trackByLocationId"
-            [class.active]="selectedLocationId === location.id"
-            (click)="selectLocation(location.id)"
-          >
-            <span>{{ location.name }}</span>
-            <small>{{ location.locationType | titlecase }}</small>
-          </button>
-        </div>
-      </section>
-
-      <section class="side-panel compact-panel" id="category-board">
-        <div class="panel-head">
-          <h2>Categories</h2>
-          <span>{{ categories.length }}</span>
+          <a *ngIf="dashboardRoute; else secondaryHeroCta" [routerLink]="dashboardRoute" class="cta ghost">
+            Open {{ currentUser?.role === 'admin' ? 'Admin' : 'Staff' }} workspace
+          </a>
+          <ng-template #secondaryHeroCta>
+            <button *ngIf="isCustomerSession; else loginCta" type="button" class="cta ghost" (click)="scrollToSection('checkoutSection')">
+              View your order history
+            </button>
+          </ng-template>
+          <ng-template #loginCta>
+            <a routerLink="/login" class="cta ghost">Log in for order history or staff tools</a>
+          </ng-template>
         </div>
 
-        <div class="panel-list" [class.panel-list-loading]="metaLoading">
-          <button
-            type="button"
-            class="filter-link"
-            [class.active]="selectedCategoryId === null"
-            (click)="selectCategory(null)"
-          >
-            <span>All categories</span>
-            <small>{{ totalProducts }} products</small>
-          </button>
-
-          <button
-            type="button"
-            class="filter-link"
-            *ngFor="let category of categories; trackBy: trackByCategoryId"
-            [class.active]="selectedCategoryId === category.id"
-            (click)="selectCategory(category.id)"
-          >
-            <span>{{ category.name }}</span>
-            <small>{{ category.productCount }} products</small>
-          </button>
+        <div class="hero-stats">
+          <article class="stat-card">
+            <span>Visible products</span>
+            <strong>{{ totalProducts }}</strong>
+            <small>Live MySQL catalog</small>
+          </article>
+          <article class="stat-card">
+            <span>Available units</span>
+            <strong>{{ totalAvailableUnits }}</strong>
+            <small>On-hand minus reserved</small>
+          </article>
+          <article class="stat-card">
+            <span>Sold out</span>
+            <strong>{{ soldOutCount }}</strong>
+            <small>Out-of-stock products today</small>
+          </article>
         </div>
-      </section>
+      </article>
 
-      <section class="side-panel workflow-panel">
-        <div class="panel-head">
-          <h2>How online ordering works</h2>
+      <aside class="hero-visual">
+        <div class="live-chip">
+          <span class="live-dot"></span>
+          Live inventory sync &middot; {{ lastSyncedLabel }}
         </div>
-        <ol>
-          <li>Filter by department or category.</li>
-          <li>Add the needed quantity to your cart.</li>
-          <li>Place the order with your mobile number.</li>
-          <li>Admin reviews the pending order and fulfills it from inventory.</li>
-        </ol>
-      </section>
-    </aside>
+        <img [src]="heroImage" (error)="useFallbackImage($event)" alt="Hospital care team" class="hero-image" />
+        <div class="hero-note">
+          <strong>{{ appliedLocation?.name || 'Automatic online department' }}</strong>
+          <span>Stock shown here is based on real available inventory after reservations.</span>
+        </div>
+      </aside>
+    </section>
 
-    <section class="shop-main" id="customer-shop">
-      <article class="toolbar-card">
-        <div class="toolbar-copy">
+    <section class="content-section home-section departments-section" id="departmentsSection" data-scroll-section>
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Departments</p>
+          <h2>Choose the department inventory you want to browse</h2>
+        </div>
+        <p class="section-copy">
+          Start with the automatic online location, or choose a specific hospital department and jump straight to the customer shop.
+        </p>
+      </div>
+
+      <div class="selection-grid">
+        <button
+          type="button"
+          class="selection-card"
+          [class.active]="selectedLocationId === null"
+          (click)="selectLocationAndScroll(null)"
+        >
+          <span class="selection-title">Automatic online stock</span>
+          <strong>{{ appliedLocation?.name || 'Best available location' }}</strong>
+          <small>Recommended default inventory source</small>
+        </button>
+
+        <button
+          type="button"
+          class="selection-card"
+          *ngFor="let location of locations; trackBy: trackByLocationId"
+          [class.active]="selectedLocationId === location.id"
+          (click)="selectLocationAndScroll(location.id)"
+        >
+          <span class="selection-title">{{ location.locationType | titlecase }}</span>
+          <strong>{{ location.name }}</strong>
+          <small>Apply this department and open the shop</small>
+        </button>
+      </div>
+    </section>
+
+    <section class="content-section home-section categories-section" id="categoriesSection" data-scroll-section>
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Categories</p>
+          <h2>Browse by medicine, supply, or equipment category</h2>
+        </div>
+        <p class="section-copy">
+          Category filters update the customer shop without leaving the page, so the public portal still behaves like one landing page.
+        </p>
+      </div>
+
+      <div class="selection-grid">
+        <button
+          type="button"
+          class="selection-card"
+          [class.active]="selectedCategoryId === null"
+          (click)="selectCategoryAndScroll(null)"
+        >
+          <span class="selection-title">All categories</span>
+          <strong>{{ totalProducts }} products</strong>
+          <small>Show every public catalog item</small>
+        </button>
+
+        <button
+          type="button"
+          class="selection-card"
+          *ngFor="let category of categories; trackBy: trackByCategoryId"
+          [class.active]="selectedCategoryId === category.id"
+          (click)="selectCategoryAndScroll(category.id)"
+        >
+          <span class="selection-title">{{ category.productCount }} product{{ category.productCount === 1 ? '' : 's' }}</span>
+          <strong>{{ category.name }}</strong>
+          <small>{{ category.description || 'Hospital inventory category' }}</small>
+        </button>
+      </div>
+    </section>
+
+    <section class="content-section shop-section home-section" id="shopSection" data-scroll-section>
+      <div class="section-heading">
+        <div>
           <p class="eyebrow">Customer Shop</p>
           <h2>Search, review, and order available hospital inventory</h2>
-          <p>
-            Search updates automatically while you type. Product cards below always show the current price in peso,
-            unit, and available stock from the selected department.
-          </p>
         </div>
+        <p class="section-copy">
+          Everything below stays on this page. Use the search and filters, review the live stock, then continue down to checkout.
+        </p>
+      </div>
 
+      <article class="toolbar-card">
         <div class="toolbar-controls">
           <label class="field field-search">
             <span>Search</span>
@@ -232,214 +245,403 @@
         </div>
       </article>
 
-      <div class="error-card" *ngIf="catalogError">
-        <p class="state error">{{ catalogError }}</p>
-        <button type="button" class="action-btn ghost" (click)="retryCatalogLoad()">Retry</button>
-      </div>
+      <div class="section-scroll-body shop-scroll-body">
+        <div class="shop-grid">
+        <aside class="shop-panel filters-panel">
+          <section class="mini-panel">
+            <div class="panel-head">
+              <h3>Quick department filter</h3>
+              <span>{{ locations.length }}</span>
+            </div>
+            <div class="panel-list">
+              <button type="button" class="filter-link" [class.active]="selectedLocationId === null" (click)="selectLocation(null)">
+                <span>Automatic online stock</span>
+                <small>{{ appliedLocation?.name || 'Best available location' }}</small>
+              </button>
+              <button
+                type="button"
+                class="filter-link"
+                *ngFor="let location of locations; trackBy: trackByLocationId"
+                [class.active]="selectedLocationId === location.id"
+                (click)="selectLocation(location.id)"
+              >
+                <span>{{ location.name }}</span>
+                <small>{{ location.locationType | titlecase }}</small>
+              </button>
+            </div>
+          </section>
 
-      <section class="featured-strip" *ngIf="featuredProducts.length > 0 && !catalogLoading">
-        <div class="section-head">
-          <h3>Today's priority stock</h3>
-          <span>Best immediate availability in {{ appliedLocation?.name || 'the selected department' }}</span>
-        </div>
+          <section class="mini-panel">
+            <div class="panel-head">
+              <h3>Quick category filter</h3>
+              <span>{{ categories.length }}</span>
+            </div>
+            <div class="panel-list">
+              <button type="button" class="filter-link" [class.active]="selectedCategoryId === null" (click)="selectCategory(null)">
+                <span>All categories</span>
+                <small>{{ totalProducts }} products</small>
+              </button>
+              <button
+                type="button"
+                class="filter-link"
+                *ngFor="let category of categories; trackBy: trackByCategoryId"
+                [class.active]="selectedCategoryId === category.id"
+                (click)="selectCategory(category.id)"
+              >
+                <span>{{ category.name }}</span>
+                <small>{{ category.productCount }} products</small>
+              </button>
+            </div>
+          </section>
 
-        <div class="featured-grid">
-          <article class="featured-card" *ngFor="let product of featuredProducts; trackBy: trackByProductId">
-            <div class="product-badge">{{ product.categoryName }}</div>
-            <h4>{{ product.name }}</h4>
-            <p>{{ formatMoney(product.price) }} · {{ product.unit }}</p>
-            <strong>{{ product.qtyAvailable }} available</strong>
-            <button type="button" class="link-btn" (click)="openProductDetails(product)">View details</button>
+          <section class="mini-panel workflow-panel">
+            <div class="panel-head">
+              <h3>How online ordering works</h3>
+            </div>
+            <ol>
+              <li>Filter by department or category.</li>
+              <li>Add the needed quantity to your cart.</li>
+              <li>Place the order with your mobile number.</li>
+              <li>Admin reviews the pending order and fulfills it from inventory.</li>
+            </ol>
+          </section>
+        </aside>
+
+        <div class="shop-panel products-panel">
+          <div class="error-card" *ngIf="catalogError">
+            <p class="state error">{{ catalogError }}</p>
+            <button type="button" class="action-btn ghost" (click)="retryCatalogLoad()">Retry</button>
+          </div>
+
+          <section class="featured-strip" *ngIf="featuredProducts.length > 0 && !catalogLoading">
+            <div class="section-head">
+              <h3>Today's priority stock</h3>
+              <span>Best immediate availability in {{ appliedLocation?.name || 'the selected department' }}</span>
+            </div>
+
+            <div class="featured-grid">
+              <article class="featured-card" *ngFor="let product of featuredProducts; trackBy: trackByProductId">
+                <div class="product-badge">{{ product.categoryName }}</div>
+                <h4>{{ product.name }}</h4>
+                <p>{{ formatMoney(product.price) }} &middot; {{ product.unit }}</p>
+                <strong>{{ product.qtyAvailable }} available</strong>
+                <button type="button" class="link-btn" (click)="openProductDetails(product)">View details</button>
+              </article>
+            </div>
+          </section>
+
+          <section class="product-grid skeleton-grid" *ngIf="showCatalogSkeleton">
+            <article class="product-card skeleton-card" *ngFor="let skeleton of skeletonCards">
+              <div class="skeleton-line skeleton-line-short"></div>
+              <div class="skeleton-line skeleton-line-title"></div>
+              <div class="skeleton-line"></div>
+              <div class="skeleton-line"></div>
+              <div class="skeleton-metrics">
+                <div class="skeleton-chip"></div>
+                <div class="skeleton-chip"></div>
+              </div>
+              <div class="skeleton-line skeleton-line-button"></div>
+            </article>
+          </section>
+
+          <section class="product-grid" *ngIf="!showCatalogSkeleton && products.length > 0">
+            <article class="product-card" *ngFor="let product of products; trackBy: trackByProductId">
+              <div class="product-visual">
+                <span class="cross-mark">+</span>
+                <div>
+                  <p>{{ product.categoryName }}</p>
+                  <strong>{{ product.sku }}</strong>
+                </div>
+              </div>
+
+              <div class="product-copy">
+                <h3>{{ product.name }}</h3>
+                <p>{{ product.description || 'Hospital inventory item ready for public ordering.' }}</p>
+              </div>
+
+              <div class="product-price-row">
+                <strong>{{ formatMoney(product.price) }}</strong>
+                <span>{{ product.unit }}</span>
+              </div>
+
+              <dl class="product-meta">
+                <div>
+                  <dt>Department</dt>
+                  <dd>{{ product.locationName || appliedLocation?.name || 'Assigned online location' }}</dd>
+                </div>
+                <div>
+                  <dt>Available</dt>
+                  <dd [class.stock-low]="product.qtyAvailable > 0 && product.qtyAvailable <= 10">{{ product.qtyAvailable }}</dd>
+                </div>
+              </dl>
+
+              <div class="stock-state" [class.stock-state-empty]="product.qtyAvailable <= 0">
+                {{ product.qtyAvailable > 0 ? 'In stock for online ordering' : 'Out of stock right now' }}
+              </div>
+
+              <div class="product-foot">
+                <button type="button" class="action-btn ghost" (click)="openProductDetails(product)">View details</button>
+                <button
+                  type="button"
+                  class="action-btn solid"
+                  (click)="addProductToCart(product)"
+                  [disabled]="product.qtyAvailable <= 0"
+                >
+                  {{ product.qtyAvailable > 0 ? 'Add to cart' : 'Out of stock' }}
+                </button>
+              </div>
+            </article>
+          </section>
+
+          <article class="empty-card" *ngIf="showEmptyProducts">
+            <h3>No products found</h3>
+            <p>Try a different search term, department, or category filter.</p>
           </article>
-        </div>
-      </section>
 
-      <section class="product-grid skeleton-grid" *ngIf="showCatalogSkeleton">
-        <article class="product-card skeleton-card" *ngFor="let skeleton of skeletonCards">
-          <div class="skeleton-line skeleton-line-short"></div>
-          <div class="skeleton-line skeleton-line-title"></div>
-          <div class="skeleton-line"></div>
-          <div class="skeleton-line"></div>
-          <div class="skeleton-metrics">
-            <div class="skeleton-chip"></div>
-            <div class="skeleton-chip"></div>
-          </div>
-          <div class="skeleton-line skeleton-line-button"></div>
-        </article>
-      </section>
-
-      <section class="product-grid" *ngIf="!showCatalogSkeleton && products.length > 0">
-        <article class="product-card" *ngFor="let product of products; trackBy: trackByProductId">
-          <div class="product-visual">
-            <span class="cross-mark">+</span>
-            <div>
-              <p>{{ product.categoryName }}</p>
-              <strong>{{ product.sku }}</strong>
-            </div>
-          </div>
-
-          <div class="product-copy">
-            <h3>{{ product.name }}</h3>
-            <p>{{ product.description || 'Hospital inventory item ready for public ordering.' }}</p>
-          </div>
-
-          <div class="product-price-row">
-            <strong>{{ formatMoney(product.price) }}</strong>
-            <span>{{ product.unit }}</span>
-          </div>
-
-          <dl class="product-meta">
-            <div>
-              <dt>Department</dt>
-              <dd>{{ product.locationName || appliedLocation?.name || 'Assigned online location' }}</dd>
-            </div>
-            <div>
-              <dt>Available</dt>
-              <dd [class.stock-low]="product.qtyAvailable > 0 && product.qtyAvailable <= 10">{{ product.qtyAvailable }}</dd>
-            </div>
-          </dl>
-
-          <div class="stock-state" [class.stock-state-empty]="product.qtyAvailable <= 0">
-            {{ product.qtyAvailable > 0 ? 'In stock for online ordering' : 'Out of stock right now' }}
-          </div>
-
-          <div class="product-foot">
-            <button type="button" class="action-btn ghost" (click)="openProductDetails(product)">View details</button>
-            <button
-              type="button"
-              class="action-btn solid"
-              (click)="addProductToCart(product)"
-              [disabled]="product.qtyAvailable <= 0"
-            >
-              {{ product.qtyAvailable > 0 ? 'Add to cart' : 'Out of stock' }}
+          <div class="pager" *ngIf="totalProducts > limit && !showCatalogSkeleton">
+            <button type="button" class="action-btn ghost" (click)="prevPage()" [disabled]="page <= 1 || catalogLoading">
+              Previous
+            </button>
+            <span>Page {{ page }}</span>
+            <button type="button" class="action-btn ghost" (click)="nextPage()" [disabled]="!hasMoreProducts || catalogLoading">
+              Next
             </button>
           </div>
-        </article>
-      </section>
+        </div>
 
-      <article class="empty-card" *ngIf="showEmptyProducts">
-        <h3>No products found</h3>
-        <p>Try a different search term, department, or category filter.</p>
-      </article>
+        <aside class="shop-panel cart-preview-panel">
+          <section class="checkout-card cart-preview-card">
+            <div class="panel-head">
+              <h3>Cart summary</h3>
+              <span>{{ cartItemCount }} item{{ cartItemCount === 1 ? '' : 's' }}</span>
+            </div>
 
-      <div class="pager" *ngIf="totalProducts > limit && !showCatalogSkeleton">
-        <button type="button" class="action-btn ghost" (click)="prevPage()" [disabled]="page <= 1 || catalogLoading">
-          Previous
-        </button>
-        <span>Page {{ page }}</span>
-        <button type="button" class="action-btn ghost" (click)="nextPage()" [disabled]="!hasMoreProducts || catalogLoading">
-          Next
-        </button>
+            <div class="cart-preview-empty" *ngIf="cartItems.length === 0; else cartPreviewList">
+              <p class="empty-copy">Your cart is empty. Add a medicine or supply from the product list to begin checkout.</p>
+            </div>
+
+            <ng-template #cartPreviewList>
+              <div class="cart-preview-list">
+                <article class="cart-preview-item" *ngFor="let item of cartItems | slice:0:4; trackBy: trackByCartItem">
+                  <div>
+                    <strong>{{ item.name }}</strong>
+                    <small>{{ item.quantity }} x {{ formatMoney(item.price) }}</small>
+                  </div>
+                  <span>{{ formatMoney(getCartLineTotal(item)) }}</span>
+                </article>
+              </div>
+            </ng-template>
+
+            <div class="total-stack">
+              <div class="total-row">
+                <span>Subtotal</span>
+                <strong>{{ formatMoney(cartSubtotal) }}</strong>
+              </div>
+              <div class="total-row total-row-accent">
+                <span>Total reservation</span>
+                <strong>{{ formatMoney(cartTotal) }}</strong>
+              </div>
+            </div>
+
+            <button type="button" class="checkout-btn" (click)="scrollToSection('checkoutSection')">
+              Continue to checkout
+            </button>
+          </section>
+        </aside>
+        </div>
       </div>
     </section>
 
-    <aside class="checkout-sidebar" id="checkout-panel" [class.drawer-open]="cartDrawerOpen">
-      <section class="checkout-card cart-card">
-        <div class="panel-head">
-          <h2>Cart summary</h2>
-          <span>{{ cartItemCount }} item{{ cartItemCount === 1 ? '' : 's' }}</span>
+    <section class="content-section checkout-section home-section" id="checkoutSection" data-scroll-section>
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Checkout</p>
+          <h2>Review your cart and place the order without leaving the page</h2>
         </div>
+        <p class="section-copy">
+          Guest checkout stays enabled. Sign in only if you want account-linked order history or need staff access.
+        </p>
+      </div>
 
-        <div class="checkout-state" *ngIf="checkoutSuccess || checkoutError">
-          <p class="state success" *ngIf="checkoutSuccess">{{ checkoutSuccess }}</p>
-          <p class="state error" *ngIf="checkoutError">{{ checkoutError }}</p>
-        </div>
+      <div class="checkout-state-banner" *ngIf="checkoutSuccess || checkoutError">
+        <p class="state success" *ngIf="checkoutSuccess">{{ checkoutSuccess }}</p>
+        <p class="state error" *ngIf="checkoutError">{{ checkoutError }}</p>
+      </div>
 
-        <div class="cart-items" *ngIf="cartItems.length > 0; else emptyCart">
-          <article class="cart-item" *ngFor="let item of cartItems; trackBy: trackByCartItem">
-            <div class="cart-item-copy">
-              <h3>{{ item.name }}</h3>
-              <p>{{ item.locationName }} · {{ item.unit }}</p>
-              <small>{{ formatMoney(item.price) }} each</small>
-            </div>
+      <div class="section-scroll-body checkout-scroll-body">
+        <div class="checkout-grid">
+        <section class="checkout-card cart-card">
+          <div class="panel-head">
+            <h3>Cart details</h3>
+            <span>{{ cartItemCount }} item{{ cartItemCount === 1 ? '' : 's' }}</span>
+          </div>
 
-            <div class="cart-item-controls">
-              <div class="qty-stepper">
-                <button type="button" (click)="decreaseCartQuantity(item)">-</button>
-                <input
-                  type="number"
-                  min="1"
-                  [max]="item.qtyAvailable"
-                  [ngModel]="item.quantity"
-                  (ngModelChange)="updateCartQuantity(item, $event)"
-                />
-                <button type="button" (click)="increaseCartQuantity(item)">+</button>
+          <div class="cart-items" *ngIf="cartItems.length > 0; else emptyCart">
+            <article class="cart-item" *ngFor="let item of cartItems; trackBy: trackByCartItem">
+              <div class="cart-item-copy">
+                <h3>{{ item.name }}</h3>
+                <p>{{ item.locationName }} &middot; {{ item.unit }}</p>
+                <small>{{ formatMoney(item.price) }} each</small>
               </div>
-              <span class="stock-note">{{ item.qtyAvailable }} available</span>
-              <strong>{{ formatMoney(getCartLineTotal(item)) }}</strong>
-              <button type="button" class="link-btn danger" (click)="removeCartItem(item)">Remove</button>
+
+              <div class="cart-item-controls">
+                <div class="qty-stepper">
+                  <button type="button" (click)="decreaseCartQuantity(item)">-</button>
+                  <input
+                    type="number"
+                    min="1"
+                    [max]="item.qtyAvailable"
+                    [ngModel]="item.quantity"
+                    (ngModelChange)="updateCartQuantity(item, $event)"
+                  />
+                  <button type="button" (click)="increaseCartQuantity(item)">+</button>
+                </div>
+                <span class="stock-note">{{ item.qtyAvailable }} available</span>
+                <strong>{{ formatMoney(getCartLineTotal(item)) }}</strong>
+                <button type="button" class="link-btn danger" (click)="removeCartItem(item)">Remove</button>
+              </div>
+            </article>
+          </div>
+
+          <ng-template #emptyCart>
+            <p class="empty-copy">Your cart is empty. Add a medicine or supply from the product list to begin checkout.</p>
+          </ng-template>
+
+          <div class="total-stack">
+            <div class="total-row">
+              <span>Subtotal</span>
+              <strong>{{ formatMoney(cartSubtotal) }}</strong>
             </div>
-          </article>
-        </div>
-
-        <ng-template #emptyCart>
-          <p class="empty-copy">Your cart is empty. Add a medicine or supply from the product list to begin checkout.</p>
-        </ng-template>
-
-        <div class="total-stack">
-          <div class="total-row">
-            <span>Subtotal</span>
-            <strong>{{ formatMoney(cartSubtotal) }}</strong>
+            <div class="total-row total-row-accent">
+              <span>Total reservation</span>
+              <strong>{{ formatMoney(cartTotal) }}</strong>
+            </div>
           </div>
-          <div class="total-row total-row-accent">
-            <span>Total reservation</span>
-            <strong>{{ formatMoney(cartTotal) }}</strong>
-          </div>
+        </section>
+
+        <div class="checkout-stack">
+          <section class="checkout-card">
+            <div class="panel-head">
+              <h3>Checkout form</h3>
+              <span>Pending order</span>
+            </div>
+
+            <p class="panel-copy" *ngIf="!currentUser">
+              Guest checkout is enabled. Sign in only if you want account-linked order history or staff access.
+            </p>
+            <p class="panel-copy" *ngIf="isCustomerSession">
+              You are signed in. New orders placed here will be linked to your customer account.
+            </p>
+
+            <div class="form-grid">
+              <label class="field">
+                <span>Full name</span>
+                <input type="text" [(ngModel)]="checkout.customerName" (ngModelChange)="onCheckoutFieldChange()" maxlength="120" />
+              </label>
+
+              <label class="field">
+                <span>Mobile number</span>
+                <input
+                  type="tel"
+                  [(ngModel)]="checkout.mobileNumber"
+                  (ngModelChange)="onCheckoutFieldChange()"
+                  maxlength="11"
+                  placeholder="09xxxxxxxxx"
+                />
+                <small class="field-help" [class.field-help-error]="checkout.mobileNumber && !mobileNumberValid">
+                  Use 09xxxxxxxxx format.
+                </small>
+              </label>
+
+              <label class="field">
+                <span>Fulfillment</span>
+                <select [(ngModel)]="checkout.fulfillmentMethod" (ngModelChange)="onCheckoutFieldChange()">
+                  <option value="pickup">Pickup</option>
+                  <option value="delivery">Delivery</option>
+                </select>
+              </label>
+
+              <label class="field field-full" *ngIf="checkout.fulfillmentMethod === 'delivery'">
+                <span>Delivery address</span>
+                <textarea
+                  [(ngModel)]="checkout.deliveryAddress"
+                  (ngModelChange)="onCheckoutFieldChange()"
+                  rows="3"
+                  maxlength="255"
+                ></textarea>
+              </label>
+
+              <label class="field field-full">
+                <span>Order notes</span>
+                <textarea
+                  [(ngModel)]="checkout.notes"
+                  (ngModelChange)="onCheckoutFieldChange()"
+                  rows="3"
+                  maxlength="255"
+                  placeholder="Optional notes for the hospital team"
+                ></textarea>
+              </label>
+            </div>
+
+            <button type="button" class="checkout-btn" (click)="submitOrder()" [disabled]="!canSubmitOrder">
+              {{ checkoutSubmitting ? 'Saving order...' : 'Place order' }}
+            </button>
+          </section>
+
+          <section class="checkout-card helper-card" *ngIf="!currentUser">
+            <div class="panel-head">
+              <h3>Guest mode</h3>
+              <span>Optional login</span>
+            </div>
+
+            <p class="panel-copy">
+              Anyone can browse, add to cart, and place an order from this page. Log in only if you want order history or
+              need to open the staff workspace.
+            </p>
+
+            <div class="helper-actions">
+              <a routerLink="/login" class="action-btn ghost">Log In</a>
+              <a routerLink="/signup" class="action-btn solid">Sign Up</a>
+            </div>
+          </section>
+
+          <section class="checkout-card helper-card" *ngIf="isCustomerSession">
+            <div class="panel-head">
+              <h3>Order history</h3>
+              <span>{{ customerOrders.length }}</span>
+            </div>
+
+            <p class="panel-copy">Recent orders linked to your signed-in customer account appear here.</p>
+
+            <p class="state error" *ngIf="customerOrdersError">{{ customerOrdersError }}</p>
+            <p class="state" *ngIf="customerOrdersLoading">Loading recent orders...</p>
+
+            <div class="history-list" *ngIf="!customerOrdersLoading && customerOrders.length > 0; else emptyOrderHistory">
+              <article class="history-item" *ngFor="let order of customerOrders; trackBy: trackByOrderId">
+                <div class="history-copy">
+                  <strong>{{ order.orderNo }}</strong>
+                  <span>{{ order.createdAt | date: 'MMM d, y h:mm a' }}</span>
+                </div>
+
+                <div class="history-meta">
+                  <span class="history-status">{{ formatOrderStatus(order.status) }}</span>
+                  <strong>{{ formatMoney(order.totalAmount) }}</strong>
+                  <small>
+                    {{ order.itemCount }} item{{ order.itemCount === 1 ? '' : 's' }} | {{ order.fulfillmentMethod | titlecase }}
+                  </small>
+                </div>
+              </article>
+            </div>
+
+            <ng-template #emptyOrderHistory>
+              <p class="empty-copy" *ngIf="!customerOrdersError">No account-linked orders yet. Your next signed-in order will appear here.</p>
+            </ng-template>
+          </section>
         </div>
-      </section>
-
-      <section class="checkout-card">
-        <div class="panel-head">
-          <h2>Checkout</h2>
-          <span>Pending order</span>
         </div>
-
-        <div class="form-grid">
-          <label class="field">
-            <span>Full name</span>
-            <input type="text" [(ngModel)]="checkout.customerName" maxlength="120" />
-          </label>
-
-          <label class="field">
-            <span>Mobile number</span>
-            <input type="tel" [(ngModel)]="checkout.mobileNumber" maxlength="10" placeholder="09xxxxxxxxx" />
-            <small class="field-help" [class.field-help-error]="checkout.mobileNumber && !mobileNumberValid">
-              Use 09xxxxxxxxx format.
-            </small>
-          </label>
-
-          <label class="field">
-            <span>Fulfillment</span>
-            <select [(ngModel)]="checkout.fulfillmentMethod">
-              <option value="pickup">Pickup</option>
-              <option value="delivery">Delivery</option>
-            </select>
-          </label>
-
-          <label class="field field-full" *ngIf="checkout.fulfillmentMethod === 'delivery'">
-            <span>Delivery address</span>
-            <textarea [(ngModel)]="checkout.deliveryAddress" rows="3" maxlength="255"></textarea>
-          </label>
-
-          <label class="field field-full">
-            <span>Order notes</span>
-            <textarea
-              [(ngModel)]="checkout.notes"
-              rows="3"
-              maxlength="255"
-              placeholder="Optional notes for the hospital team"
-            ></textarea>
-          </label>
-        </div>
-
-        <button type="button" class="checkout-btn" (click)="submitOrder()" [disabled]="!canSubmitOrder">
-          {{ checkoutSubmitting ? 'Saving order...' : 'Place order' }}
-        </button>
-      </section>
-    </aside>
+      </div>
+    </section>
   </main>
-
-  <div class="drawer-backdrop" *ngIf="showDrawerBackdrop" (click)="closeDrawers()"></div>
 
   <div class="detail-backdrop" *ngIf="detailOpen && selectedProduct as product" (click)="closeProductDetails()">
     <section class="detail-panel" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" aria-label="Product details">
@@ -447,7 +649,7 @@
         <div>
           <p class="eyebrow">Product details</p>
           <h2>{{ product.name }}</h2>
-          <span>{{ product.sku }} · {{ product.categoryName }}</span>
+          <span>{{ product.sku }} &middot; {{ product.categoryName }}</span>
         </div>
         <button type="button" class="action-btn ghost" (click)="closeProductDetails()">Close</button>
       </div>
