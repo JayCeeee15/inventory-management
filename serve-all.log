@@ -1,0 +1,104 @@
+
+> inventory-management@0.0.0 serve:all
+> concurrently "npm run serve:api" "npm run serve:inventory-api" "npm start"
+
+[1] 
+[1] > inventory-management@0.0.0 serve:inventory-api
+[1] > json-server --watch db.json --port 3000
+[1] 
+[0] 
+[0] > inventory-management@0.0.0 serve:api
+[0] > node api/server.js
+[0] 
+[2] 
+[2] > inventory-management@0.0.0 start
+[2] > ng serve
+[2] 
+[1] --watch/-w can be omitted, JSON Server 1+ watches for file changes by default
+[1] JSON Server started on PORT :3000
+[1] Press CTRL-C to stop
+[1] Watching db.json...
+[1] 
+[1] ♡( ◡‿◡ )
+[1] 
+[1] Index:
+[1] http://localhost:3000/
+[1] 
+[1] Static files:
+[1] Serving ./public directory if it exists
+[1] 
+[1] Endpoints:
+[1] http://localhost:3000/users
+[1] http://localhost:3000/products
+[1] http://localhost:3000/categories
+[0] [dotenv@17.3.1] injecting env (12) from .env -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+[0] Auth API running at http://localhost:3001/api
+[2] [33m>[39m Building...
+[2] [32m√[39m Building...
+[2] [35mBrowser bundles[39m     
+[2] [1mInitial chunk files[22m [2m | [22m[1mNames[22m                       [2m | [22m [1mRaw size[22m
+[2] [32mstyles.css[39m          [2m | [22m[2mstyles[22m                      [2m | [22m[36m112.80 kB[39m[2m | [22m
+[2] [32mmain.js[39m             [2m | [22m[2mmain[22m                        [2m | [22m [36m39.79 kB[39m[2m | [22m
+[2] [32mchunk-EKV2WP73.js[39m   [2m | [22m[2m-[22m                           [2m | [22m  [36m9.62 kB[39m[2m | [22m
+[2] [32mchunk-CZJLB7T5.js[39m   [2m | [22m[2m-[22m                           [2m | [22m  [36m1.08 kB[39m[2m | [22m
+[2] [32mchunk-ZPNHAIN4.js[39m   [2m | [22m[2m-[22m                           [2m | [22m[36m509 bytes[39m[2m | [22m
+[2] [32mchunk-C256JKPL.js[39m   [2m | [22m[2m-[22m                           [2m | [22m[36m215 bytes[39m[2m | [22m
+[2] 
+[2] [1m [22m                   [2m | [22m[1mInitial total[22m               [2m | [22m[1m164.01 kB[22m
+[2] 
+[2] [1mLazy chunk files[22m    [2m | [22m[1mNames[22m                       [2m | [22m [1mRaw size[22m
+[2] [32mchunk-7CS7B2EV.js[39m   [2m | [22m[2mdashboard-component[22m         [2m | [22m[36m227.90 kB[39m[2m | [22m
+[2] [32mchunk-7U3PQ56Q.js[39m   [2m | [22m[2memployee-dashboard-component[22m[2m | [22m[36m167.95 kB[39m[2m | [22m
+[2] [32mchunk-O5OMOSK7.js[39m   [2m | [22m[2mhome-component[22m              [2m | [22m[36m145.88 kB[39m[2m | [22m
+[2] [32mchunk-HO7LHYVQ.js[39m   [2m | [22m[2m-[22m                           [2m | [22m[36m113.21 kB[39m[2m | [22m
+[2] [32mchunk-N3567I6I.js[39m   [2m | [22m[2m-[22m                           [2m | [22m [36m44.98 kB[39m[2m | [22m
+[2] [32mchunk-7S6PYYKK.js[39m   [2m | [22m[2m-[22m                           [2m | [22m [36m42.69 kB[39m[2m | [22m
+[2] [32mchunk-ON2ZZCME.js[39m   [2m | [22m[2m-[22m                           [2m | [22m [36m35.86 kB[39m[2m | [22m
+[2] [32mchunk-I2UW47CF.js[39m   [2m | [22m[2m-[22m                           [2m | [22m [36m32.70 kB[39m[2m | [22m
+[2] [32mchunk-4MVD2MYX.js[39m   [2m | [22m[2m-[22m                           [2m | [22m [36m27.28 kB[39m[2m | [22m
+[2] [32mchunk-ZVY7EXXQ.js[39m   [2m | [22m[2m-[22m                           [2m | [22m [36m23.68 kB[39m[2m | [22m
+[2] [32mchunk-XIERYACI.js[39m   [2m | [22m[2m-[22m                           [2m | [22m [36m21.80 kB[39m[2m | [22m
+[2] [32mchunk-T3NH2AOH.js[39m   [2m | [22m[2msignup-component[22m            [2m | [22m [36m15.82 kB[39m[2m | [22m
+[2] [32mchunk-4EJVW76G.js[39m   [2m | [22m[2m-[22m                           [2m | [22m  [36m9.22 kB[39m[2m | [22m
+[2] [32mchunk-V3CJRPFR.js[39m   [2m | [22m[2mabout-component[22m             [2m | [22m  [36m5.45 kB[39m[2m | [22m
+[2] [32mchunk-U3LWAUPH.js[39m   [2m | [22m[2m-[22m                           [2m | [22m  [36m4.63 kB[39m[2m | [22m
+[2] [2m...and 8 more lazy chunks files. Use "--verbose" to show all the files.[22m
+[2] 
+[2] 
+[2] [35mServer bundles[39m      
+[2] [1mInitial chunk files[22m [2m | [22m[1mNames[22m                       [2m | [22m [1mRaw size[22m
+[2] [32mmain.server.mjs[39m     [2m | [22m[2mmain.server[22m                 [2m | [22m [36m41.02 kB[39m[2m | [22m
+[2] [32mchunk-H7SJSHCP.mjs[39m  [2m | [22m[2m-[22m                           [2m | [22m  [36m9.65 kB[39m[2m | [22m
+[2] [32mserver.mjs[39m          [2m | [22m[2mserver[22m                      [2m | [22m  [36m1.21 kB[39m[2m | [22m
+[2] [32mchunk-XZXRA2IB.mjs[39m  [2m | [22m[2m-[22m                           [2m | [22m  [36m1.11 kB[39m[2m | [22m
+[2] [32mchunk-SVWT5SOD.mjs[39m  [2m | [22m[2m-[22m                           [2m | [22m[36m544 bytes[39m[2m | [22m
+[2] [32mchunk-D6UN4XIP.mjs[39m  [2m | [22m[2m-[22m                           [2m | [22m[36m250 bytes[39m[2m | [22m
+[2] [32mpolyfills.server.mjs[39m[2m | [22m[2mpolyfills.server[22m            [2m | [22m[36m243 bytes[39m[2m | [22m
+[2] 
+[2] [1mLazy chunk files[22m    [2m | [22m[1mNames[22m                       [2m | [22m [1mRaw size[22m
+[2] [32mchunk-BPQLDXBT.mjs[39m  [2m | [22m[2mdashboard-component[22m         [2m | [22m[36m227.95 kB[39m[2m | [22m
+[2] [32mchunk-27EPUYEW.mjs[39m  [2m | [22m[2memployee-dashboard-component[22m[2m | [22m[36m168.00 kB[39m[2m | [22m
+[2] [32mchunk-LW4RZBE4.mjs[39m  [2m | [22m[2mhome-component[22m              [2m | [22m[36m145.92 kB[39m[2m | [22m
+[2] [32mchunk-KF7PGB63.mjs[39m  [2m | [22m[2m-[22m                           [2m | [22m[36m113.25 kB[39m[2m | [22m
+[2] [32mchunk-CHVHTA4P.mjs[39m  [2m | [22m[2m-[22m                           [2m | [22m [36m45.01 kB[39m[2m | [22m
+[2] [32mchunk-CTXWP5UT.mjs[39m  [2m | [22m[2m-[22m                           [2m | [22m [36m42.73 kB[39m[2m | [22m
+[2] [32mchunk-H5MJLD4A.mjs[39m  [2m | [22m[2m-[22m                           [2m | [22m [36m35.89 kB[39m[2m | [22m
+[2] [32mchunk-6MU4JW2E.mjs[39m  [2m | [22m[2m-[22m                           [2m | [22m [36m32.74 kB[39m[2m | [22m
+[2] [32mchunk-OIEQ5PBH.mjs[39m  [2m | [22m[2m-[22m                           [2m | [22m [36m27.31 kB[39m[2m | [22m
+[2] [32mchunk-3F4G7RT7.mjs[39m  [2m | [22m[2m-[22m                           [2m | [22m [36m23.71 kB[39m[2m | [22m
+[2] [32mchunk-SX4DISXH.mjs[39m  [2m | [22m[2m-[22m                           [2m | [22m [36m21.84 kB[39m[2m | [22m
+[2] [32mchunk-LXGD7JQG.mjs[39m  [2m | [22m[2msignup-component[22m            [2m | [22m [36m15.86 kB[39m[2m | [22m
+[2] [32mchunk-YIUKLZPJ.mjs[39m  [2m | [22m[2m-[22m                           [2m | [22m  [36m9.26 kB[39m[2m | [22m
+[2] [32mchunk-C2CEES35.mjs[39m  [2m | [22m[2mabout-component[22m             [2m | [22m  [36m5.49 kB[39m[2m | [22m
+[2] [32mchunk-VSLLBCM2.mjs[39m  [2m | [22m[2m-[22m                           [2m | [22m  [36m4.66 kB[39m[2m | [22m
+[2] [2m...and 8 more lazy chunks files. Use "--verbose" to show all the files.[22m
+[2] 
+[2] Application bundle generation complete. [11.125 seconds] - 2026-04-06T00:48:18.805Z
+[2] 
+[2] Watch mode enabled. Watching for file changes...
+[2] NOTE: Raw file sizes do not reflect development server per-request transformations.
+[2]   [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m4200[22m/[39m
+[2] npm start exited with code 3221225786
+[0] ^C
+[1] npm run serve:inventory-api exited with code 3221225786
+[0] npm run serve:api exited with code 3221225786
