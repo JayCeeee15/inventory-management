@@ -102,49 +102,18 @@
           <span class="live-dot"></span>
           Live inventory sync &middot; {{ lastSyncedLabel }}
         </div>
-        <img [src]="heroImage" (error)="useFallbackImage($event)" alt="Hospital care team" class="hero-image" />
+        <img
+          [src]="heroImage"
+          (load)="onLayoutAssetSettled()"
+          (error)="useFallbackImage($event)"
+          alt="Hospital care team"
+          class="hero-image"
+        />
         <div class="hero-note">
           <strong>{{ appliedLocation?.name || 'Automatic online department' }}</strong>
           <span>Stock shown here is based on real available inventory after reservations.</span>
         </div>
       </aside>
-    </section>
-
-    <section class="content-section home-section departments-section" id="departmentsSection" data-scroll-section>
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">Departments</p>
-          <h2>Choose the department inventory you want to browse</h2>
-        </div>
-        <p class="section-copy">
-          Start with the automatic online location, or choose a specific hospital department and jump straight to the customer shop.
-        </p>
-      </div>
-
-      <div class="selection-grid">
-        <button
-          type="button"
-          class="selection-card"
-          [class.active]="selectedLocationId === null"
-          (click)="selectLocationAndScroll(null)"
-        >
-          <span class="selection-title">Automatic online stock</span>
-          <strong>{{ appliedLocation?.name || 'Best available location' }}</strong>
-          <small>Recommended default inventory source</small>
-        </button>
-
-        <button
-          type="button"
-          class="selection-card"
-          *ngFor="let location of locations; trackBy: trackByLocationId"
-          [class.active]="selectedLocationId === location.id"
-          (click)="selectLocationAndScroll(location.id)"
-        >
-          <span class="selection-title">{{ location.locationType | titlecase }}</span>
-          <strong>{{ location.name }}</strong>
-          <small>Apply this department and open the shop</small>
-        </button>
-      </div>
     </section>
 
     <section class="content-section home-section categories-section" id="categoriesSection" data-scroll-section>
@@ -185,17 +154,17 @@
     </section>
 
     <section class="content-section shop-section home-section" id="shopSection" data-scroll-section>
-      <div class="section-heading">
+      <div class="section-heading shop-heading">
         <div>
           <p class="eyebrow">Customer Shop</p>
-          <h2>Search, review, and order available hospital inventory</h2>
+          <h2>Shop hospital inventory</h2>
         </div>
         <p class="section-copy">
-          Everything below stays on this page. Use the search and filters, review the live stock, then continue down to checkout.
+          Search the live catalog, choose a quantity, add items to cart, then proceed to checkout when ready.
         </p>
       </div>
 
-      <article class="toolbar-card">
+      <article class="toolbar-card shop-filter-bar">
         <div class="toolbar-controls">
           <label class="field field-search">
             <span>Search</span>
@@ -209,16 +178,6 @@
           </label>
 
           <label class="field">
-            <span>Department</span>
-            <select [ngModel]="selectedLocationId" (ngModelChange)="selectLocation($event)" [disabled]="checkoutSubmitting">
-              <option [ngValue]="null">Automatic online stock</option>
-              <option *ngFor="let location of locations; trackBy: trackByLocationId" [ngValue]="location.id">
-                {{ location.name }}
-              </option>
-            </select>
-          </label>
-
-          <label class="field">
             <span>Category</span>
             <select [ngModel]="selectedCategoryId" (ngModelChange)="selectCategory($event)" [disabled]="checkoutSubmitting">
               <option [ngValue]="null">All categories</option>
@@ -228,16 +187,26 @@
             </select>
           </label>
 
+          <label class="field">
+            <span>Department</span>
+            <select [ngModel]="selectedLocationId" (ngModelChange)="selectLocation($event)" [disabled]="checkoutSubmitting">
+              <option [ngValue]="null">Automatic online stock</option>
+              <option *ngFor="let location of locations; trackBy: trackByLocationId" [ngValue]="location.id">
+                {{ location.name }}
+              </option>
+            </select>
+          </label>
+
           <div class="toolbar-actions">
             <button type="button" class="action-btn ghost" (click)="clearCatalogFilters()" [disabled]="catalogLoading">
-              Reset filters
+              Reset
             </button>
           </div>
         </div>
 
         <div class="toolbar-meta">
-          <span>Showing {{ products.length }} of {{ totalProducts }} products</span>
-          <span>Department: {{ appliedLocation?.name || 'Automatic online selection' }}</span>
+          <span>{{ products.length }} shown of {{ totalProducts }} product{{ totalProducts === 1 ? '' : 's' }}</span>
+          <span>{{ appliedLocation?.name || 'Automatic online selection' }}</span>
           <span *ngIf="catalogRefreshing" class="inline-loading">
             <span class="live-dot"></span>
             Refreshing stock
@@ -246,210 +215,177 @@
       </article>
 
       <div class="section-scroll-body shop-scroll-body">
-        <div class="shop-grid">
-        <aside class="shop-panel filters-panel">
-          <section class="mini-panel">
-            <div class="panel-head">
-              <h3>Quick department filter</h3>
-              <span>{{ locations.length }}</span>
-            </div>
-            <div class="panel-list">
-              <button type="button" class="filter-link" [class.active]="selectedLocationId === null" (click)="selectLocation(null)">
-                <span>Automatic online stock</span>
-                <small>{{ appliedLocation?.name || 'Best available location' }}</small>
-              </button>
-              <button
-                type="button"
-                class="filter-link"
-                *ngFor="let location of locations; trackBy: trackByLocationId"
-                [class.active]="selectedLocationId === location.id"
-                (click)="selectLocation(location.id)"
-              >
-                <span>{{ location.name }}</span>
-                <small>{{ location.locationType | titlecase }}</small>
-              </button>
-            </div>
-          </section>
-
-          <section class="mini-panel">
-            <div class="panel-head">
-              <h3>Quick category filter</h3>
-              <span>{{ categories.length }}</span>
-            </div>
-            <div class="panel-list">
-              <button type="button" class="filter-link" [class.active]="selectedCategoryId === null" (click)="selectCategory(null)">
-                <span>All categories</span>
-                <small>{{ totalProducts }} products</small>
-              </button>
-              <button
-                type="button"
-                class="filter-link"
-                *ngFor="let category of categories; trackBy: trackByCategoryId"
-                [class.active]="selectedCategoryId === category.id"
-                (click)="selectCategory(category.id)"
-              >
-                <span>{{ category.name }}</span>
-                <small>{{ category.productCount }} products</small>
-              </button>
-            </div>
-          </section>
-
-          <section class="mini-panel workflow-panel">
-            <div class="panel-head">
-              <h3>How online ordering works</h3>
-            </div>
-            <ol>
-              <li>Filter by department or category.</li>
-              <li>Add the needed quantity to your cart.</li>
-              <li>Place the order with your mobile number.</li>
-              <li>Admin reviews the pending order and fulfills it from inventory.</li>
-            </ol>
-          </section>
-        </aside>
-
-        <div class="shop-panel products-panel">
-          <div class="error-card" *ngIf="catalogError">
-            <p class="state error">{{ catalogError }}</p>
-            <button type="button" class="action-btn ghost" (click)="retryCatalogLoad()">Retry</button>
-          </div>
-
-          <section class="featured-strip" *ngIf="featuredProducts.length > 0 && !catalogLoading">
-            <div class="section-head">
-              <h3>Today's priority stock</h3>
-              <span>Best immediate availability in {{ appliedLocation?.name || 'the selected department' }}</span>
-            </div>
-
-            <div class="featured-grid">
-              <article class="featured-card" *ngFor="let product of featuredProducts; trackBy: trackByProductId">
-                <div class="product-badge">{{ product.categoryName }}</div>
-                <h4>{{ product.name }}</h4>
-                <p>{{ formatMoney(product.price) }} &middot; {{ product.unit }}</p>
-                <strong>{{ product.qtyAvailable }} available</strong>
-                <button type="button" class="link-btn" (click)="openProductDetails(product)">View details</button>
-              </article>
-            </div>
-          </section>
-
-          <section class="product-grid skeleton-grid" *ngIf="showCatalogSkeleton">
-            <article class="product-card skeleton-card" *ngFor="let skeleton of skeletonCards">
-              <div class="skeleton-line skeleton-line-short"></div>
-              <div class="skeleton-line skeleton-line-title"></div>
-              <div class="skeleton-line"></div>
-              <div class="skeleton-line"></div>
-              <div class="skeleton-metrics">
-                <div class="skeleton-chip"></div>
-                <div class="skeleton-chip"></div>
+        <div class="shop-storefront">
+          <div class="shop-products-column">
+            <div class="shop-status-bar">
+              <div>
+                <strong>{{ catalogLoading ? 'Loading inventory' : 'Available products' }}</strong>
+                <span>Live prices and stock update from the selected department.</span>
               </div>
-              <div class="skeleton-line skeleton-line-button"></div>
-            </article>
-          </section>
-
-          <section class="product-grid" *ngIf="!showCatalogSkeleton && products.length > 0">
-            <article class="product-card" *ngFor="let product of products; trackBy: trackByProductId">
-              <div class="product-visual">
-                <span class="cross-mark">+</span>
-                <div>
-                  <p>{{ product.categoryName }}</p>
-                  <strong>{{ product.sku }}</strong>
-                </div>
-              </div>
-
-              <div class="product-copy">
-                <h3>{{ product.name }}</h3>
-                <p>{{ product.description || 'Hospital inventory item ready for public ordering.' }}</p>
-              </div>
-
-              <div class="product-price-row">
-                <strong>{{ formatMoney(product.price) }}</strong>
-                <span>{{ product.unit }}</span>
-              </div>
-
-              <dl class="product-meta">
-                <div>
-                  <dt>Department</dt>
-                  <dd>{{ product.locationName || appliedLocation?.name || 'Assigned online location' }}</dd>
-                </div>
-                <div>
-                  <dt>Available</dt>
-                  <dd [class.stock-low]="product.qtyAvailable > 0 && product.qtyAvailable <= 10">{{ product.qtyAvailable }}</dd>
-                </div>
-              </dl>
-
-              <div class="stock-state" [class.stock-state-empty]="product.qtyAvailable <= 0">
-                {{ product.qtyAvailable > 0 ? 'In stock for online ordering' : 'Out of stock right now' }}
-              </div>
-
-              <div class="product-foot">
-                <button type="button" class="action-btn ghost" (click)="openProductDetails(product)">View details</button>
-                <button
-                  type="button"
-                  class="action-btn solid"
-                  (click)="addProductToCart(product)"
-                  [disabled]="product.qtyAvailable <= 0"
-                >
-                  {{ product.qtyAvailable > 0 ? 'Add to cart' : 'Out of stock' }}
-                </button>
-              </div>
-            </article>
-          </section>
-
-          <article class="empty-card" *ngIf="showEmptyProducts">
-            <h3>No products found</h3>
-            <p>Try a different search term, department, or category filter.</p>
-          </article>
-
-          <div class="pager" *ngIf="totalProducts > limit && !showCatalogSkeleton">
-            <button type="button" class="action-btn ghost" (click)="prevPage()" [disabled]="page <= 1 || catalogLoading">
-              Previous
-            </button>
-            <span>Page {{ page }}</span>
-            <button type="button" class="action-btn ghost" (click)="nextPage()" [disabled]="!hasMoreProducts || catalogLoading">
-              Next
-            </button>
-          </div>
-        </div>
-
-        <aside class="shop-panel cart-preview-panel">
-          <section class="checkout-card cart-preview-card">
-            <div class="panel-head">
-              <h3>Cart summary</h3>
-              <span>{{ cartItemCount }} item{{ cartItemCount === 1 ? '' : 's' }}</span>
+              <button type="button" class="link-btn" *ngIf="catalogError" (click)="retryCatalogLoad()">Retry</button>
             </div>
 
-            <div class="cart-preview-empty" *ngIf="cartItems.length === 0; else cartPreviewList">
-              <p class="empty-copy">Your cart is empty. Add a medicine or supply from the product list to begin checkout.</p>
+            <div class="compact-banner error-card" *ngIf="catalogError">
+              <p class="state error">{{ catalogError }}</p>
+              <button type="button" class="action-btn ghost" (click)="retryCatalogLoad()">Retry</button>
             </div>
 
-            <ng-template #cartPreviewList>
-              <div class="cart-preview-list">
-                <article class="cart-preview-item" *ngFor="let item of cartItems | slice:0:4; trackBy: trackByCartItem">
-                  <div>
-                    <strong>{{ item.name }}</strong>
-                    <small>{{ item.quantity }} x {{ formatMoney(item.price) }}</small>
+            <section class="product-results">
+              <div class="product-grid skeleton-grid" *ngIf="showCatalogSkeleton">
+                <article class="product-card skeleton-card store-product-card" *ngFor="let skeleton of skeletonCards">
+                  <div class="skeleton-line skeleton-line-short"></div>
+                  <div class="skeleton-line skeleton-line-title"></div>
+                  <div class="skeleton-line"></div>
+                  <div class="skeleton-metrics">
+                    <div class="skeleton-chip"></div>
+                    <div class="skeleton-chip"></div>
                   </div>
-                  <span>{{ formatMoney(getCartLineTotal(item)) }}</span>
+                  <div class="skeleton-line skeleton-line-button"></div>
                 </article>
               </div>
-            </ng-template>
 
-            <div class="total-stack">
-              <div class="total-row">
-                <span>Subtotal</span>
-                <strong>{{ formatMoney(cartSubtotal) }}</strong>
+              <div class="product-grid store-product-grid" *ngIf="!showCatalogSkeleton && products.length > 0">
+                <article
+                  class="product-card store-product-card"
+                  *ngFor="let product of products; trackBy: trackByProductId"
+                  [class.product-card-disabled]="product.qtyAvailable <= 0"
+                >
+                  <div class="product-card-top">
+                    <div class="product-title-block">
+                      <span class="product-badge">{{ product.categoryName }}</span>
+                      <h3>{{ product.name }}</h3>
+                      <small>{{ product.sku }} &middot; {{ product.locationName || appliedLocation?.name || 'Online stock' }}</small>
+                    </div>
+                    <span
+                      class="stock-pill"
+                      [class.stock-pill-low]="product.qtyAvailable > 0 && product.qtyAvailable <= 10"
+                      [class.stock-pill-empty]="product.qtyAvailable <= 0"
+                    >
+                      {{ getStockStateLabel(product) }}
+                    </span>
+                  </div>
+
+                  <div class="product-price-row">
+                    <strong>{{ formatMoney(product.price) }}</strong>
+                    <span>{{ product.unit }}</span>
+                  </div>
+
+                  <div class="product-buy-row">
+                    <div class="stock-count">
+                      <span>Available</span>
+                      <strong [class.stock-low]="product.qtyAvailable > 0 && product.qtyAvailable <= 10">
+                        {{ product.qtyAvailable }}
+                      </strong>
+                    </div>
+
+                    <div class="qty-stepper product-qty-stepper">
+                      <button type="button" (click)="decreaseProductQuantity(product)" [disabled]="product.qtyAvailable <= 0">-</button>
+                      <input
+                        type="number"
+                        min="1"
+                        [max]="product.qtyAvailable"
+                        [ngModel]="getProductQuantity(product)"
+                        (ngModelChange)="setProductQuantity(product, $event)"
+                        [disabled]="product.qtyAvailable <= 0"
+                        aria-label="Quantity"
+                      />
+                      <button type="button" (click)="increaseProductQuantity(product)" [disabled]="product.qtyAvailable <= 0">+</button>
+                    </div>
+                  </div>
+
+                  <div class="product-foot">
+                    <button type="button" class="link-btn" (click)="openProductDetails(product)">Details</button>
+                    <button
+                      type="button"
+                      class="checkout-btn add-cart-btn"
+                      (click)="addProductSelectionToCart(product)"
+                      [disabled]="product.qtyAvailable <= 0"
+                    >
+                      {{ product.qtyAvailable > 0 ? 'Add to Cart' : 'Out of stock' }}
+                    </button>
+                  </div>
+                </article>
               </div>
-              <div class="total-row total-row-accent">
-                <span>Total reservation</span>
-                <strong>{{ formatMoney(cartTotal) }}</strong>
-              </div>
+
+              <article class="empty-card shop-empty-state" *ngIf="showEmptyProducts">
+                <h3>No products found</h3>
+                <p>Try another search, category, or department.</p>
+                <button type="button" class="action-btn ghost" (click)="clearCatalogFilters()">Reset filters</button>
+              </article>
+            </section>
+
+            <div class="pager shop-pager" *ngIf="totalProducts > limit && !showCatalogSkeleton">
+              <button type="button" class="action-btn ghost" (click)="prevPage()" [disabled]="page <= 1 || catalogLoading">
+                Previous
+              </button>
+              <span>Page {{ page }}</span>
+              <button type="button" class="action-btn ghost" (click)="nextPage()" [disabled]="!hasMoreProducts || catalogLoading">
+                Next
+              </button>
             </div>
+          </div>
 
-            <button type="button" class="checkout-btn" (click)="scrollToSection('checkoutSection')">
-              Continue to checkout
-            </button>
-          </section>
-        </aside>
+          <aside class="cart-preview-panel shop-cart-panel" [class.cart-open]="mobileCartOpen">
+            <section class="checkout-card cart-preview-card">
+              <div class="panel-head cart-panel-head">
+                <div>
+                  <h3>Cart summary</h3>
+                  <span>{{ cartItemCount }} item{{ cartItemCount === 1 ? '' : 's' }}</span>
+                </div>
+                <button type="button" class="link-btn drawer-close" (click)="closeMobileCart()">Close</button>
+              </div>
+
+              <div class="cart-preview-empty" *ngIf="cartItems.length === 0; else cartPreviewList">
+                <p class="empty-copy">Your cart is empty. Choose a quantity and add an item to begin.</p>
+              </div>
+
+              <ng-template #cartPreviewList>
+                <div class="cart-preview-list shop-cart-list">
+                  <article class="cart-preview-item shop-cart-item" *ngFor="let item of cartItems; trackBy: trackByCartItem">
+                    <div class="cart-item-main">
+                      <strong>{{ item.name }}</strong>
+                      <small>{{ formatMoney(item.price) }} each &middot; {{ item.unit }}</small>
+                    </div>
+
+                    <div class="qty-stepper cart-stepper">
+                      <button type="button" (click)="decreaseCartQuantity(item)">-</button>
+                      <input
+                        type="number"
+                        min="1"
+                        [max]="item.qtyAvailable"
+                        [ngModel]="item.quantity"
+                        (ngModelChange)="updateCartQuantity(item, $event)"
+                        aria-label="Cart quantity"
+                      />
+                      <button type="button" (click)="increaseCartQuantity(item)">+</button>
+                    </div>
+
+                    <div class="cart-line-actions">
+                      <strong>{{ formatMoney(getCartLineTotal(item)) }}</strong>
+                      <button type="button" class="link-btn danger" (click)="removeCartItem(item)">Remove</button>
+                    </div>
+                  </article>
+                </div>
+              </ng-template>
+
+              <div class="total-stack">
+                <div class="total-row total-row-accent">
+                  <span>Subtotal</span>
+                  <strong>{{ formatMoney(cartSubtotal) }}</strong>
+                </div>
+              </div>
+
+              <button type="button" class="checkout-btn" (click)="startCheckout()" [disabled]="cartItems.length === 0">
+                Proceed to Checkout
+              </button>
+            </section>
+          </aside>
         </div>
       </div>
+
+      <button type="button" class="mobile-cart-toggle" (click)="toggleMobileCart()">
+        Cart: {{ cartItemCount }} item{{ cartItemCount === 1 ? '' : 's' }} &middot; {{ formatMoney(cartSubtotal) }}
+      </button>
     </section>
 
     <section class="content-section checkout-section home-section" id="checkoutSection" data-scroll-section>
@@ -468,6 +404,7 @@
         <p class="state error" *ngIf="checkoutError">{{ checkoutError }}</p>
       </div>
 
+      <ng-container *ngIf="showCheckoutForm; else checkoutPrompt">
       <div class="section-scroll-body checkout-scroll-body">
         <div class="checkout-grid">
         <section class="checkout-card cart-card">
@@ -640,6 +577,38 @@
         </div>
         </div>
       </div>
+      </ng-container>
+
+      <ng-template #checkoutPrompt>
+        <article class="checkout-card checkout-compact-prompt">
+          <div class="panel-head">
+            <h3>{{ cartItems.length > 0 ? 'Ready to checkout?' : 'Your cart is empty' }}</h3>
+            <span>{{ cartItemCount }} item{{ cartItemCount === 1 ? '' : 's' }}</span>
+          </div>
+
+          <p class="panel-copy" *ngIf="cartItems.length === 0; else cartReadyCopy">
+            Add a medicine or supply from the Customer Shop before opening the checkout form.
+          </p>
+
+          <ng-template #cartReadyCopy>
+            <p class="panel-copy">
+              Review the cart summary, then proceed when you are ready to enter your contact and fulfillment details.
+            </p>
+          </ng-template>
+
+          <div class="total-row total-row-accent" *ngIf="cartItems.length > 0">
+            <span>Subtotal</span>
+            <strong>{{ formatMoney(cartSubtotal) }}</strong>
+          </div>
+
+          <div class="helper-actions">
+            <button type="button" class="action-btn ghost" (click)="continueShopping()">Continue shopping</button>
+            <button type="button" class="checkout-btn" (click)="startCheckout()" [disabled]="cartItems.length === 0">
+              Proceed to Checkout
+            </button>
+          </div>
+        </article>
+      </ng-template>
     </section>
   </main>
 

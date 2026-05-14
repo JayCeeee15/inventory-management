@@ -68,6 +68,7 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
   private static readonly GUEST_CHECKOUT_STORAGE_KEY = 'public_shop_guest_checkout';
   private static readonly CUSTOMER_ORDER_HISTORY_LIMIT = 6;
   private static readonly SECTION_SCROLL_PADDING_PX = 12;
+  private static readonly LOW_STOCK_THRESHOLD = 10;
 
   private readonly isBrowser: boolean;
   private readonly searchTerm$ = new Subject<string>();
@@ -80,6 +81,17 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
   private customerOrdersSub?: Subscription;
   private sectionObserver?: IntersectionObserver;
   private scrollMetricTimer: number | null = null;
+  private scrollReadyTimer: number | null = null;
+  private scrollRequestId = 0;
+  private pendingScrollTargetId: string | null = null;
+  private previousDocumentScrollStyles: {
+    htmlHeight: string;
+    htmlOverflowY: string;
+    bodyHeight: string;
+    bodyMinHeight: string;
+    bodyOverflowX: string;
+    bodyOverflowY: string;
+  } | null = null;
   private sectionTargetsVerified = false;
   private checkoutStateHydrated = false;
   private lastSessionSuggestedName = '';
@@ -88,7 +100,6 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly fallbackImage = '/inventory-front.svg';
   readonly navLinks: NavLink[] = [
     { label: 'Home', targetId: 'homeSection' },
-    { label: 'Departments', targetId: 'departmentsSection' },
     { label: 'Categories', targetId: 'categoriesSection' },
     { label: 'Customer Shop', targetId: 'shopSection' },
     { label: 'Checkout', targetId: 'checkoutSection' }
@@ -105,6 +116,7 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
   selectedLocationId: number | null = null;
   selectedCategoryId: number | null = null;
   searchTerm = '';
+  productQuantities: Record<string, number> = {};
 
   page = 1;
   limit = 12;
@@ -118,6 +130,8 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
   headerHeightPx = 88;
   navHeightPx = 66;
   stickyStackHeightPx = 170;
+  checkoutStarted = false;
+  mobileCartOpen = false;
 
   cartItems: CartItem[] = [];
   checkout: CheckoutState = this.createDefaultCheckoutState();
@@ -156,11 +170,13 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
+    this.enablePublicPageScrolling();
     this.verifySectionTargets();
     this.scheduleScrollMetricUpdate();
   }
 
   ngOnInit(): void {
+    this.enablePublicPageScrolling();
     this.restoreGuestCheckoutDraft();
     this.restoreCartItems();
     this.checkoutStateHydrated = true;
@@ -186,6 +202,13 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
       window.clearTimeout(this.scrollMetricTimer);
       this.scrollMetricTimer = null;
     }
+
+    if (this.scrollReadyTimer !== null && this.isBrowser) {
+      window.clearTimeout(this.scrollReadyTimer);
+      this.scrollReadyTimer = null;
+    }
+
+    this.restoreDocumentScrolling();
   }
 
   @HostListener('window:resize')
@@ -275,6 +298,10 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
     return !this.catalogLoading && !this.catalogError && this.products.length === 0;
   }
 
+  get showCheckoutForm(): boolean {
+    return this.checkoutStarted && this.cartItems.length > 0;
+  }
+
   onSearchTermChange(value: string): void {
     this.searchTerm = value;
     this.page = 1;
@@ -285,11 +312,6 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.selectedLocationId = locationId;
     this.page = 1;
     this.loadCatalog();
-  }
-
-  selectLocationAndScroll(locationId: number | null): void {
-    this.selectLocation(locationId);
-    this.scrollToSection('shopSection');
   }
 
   selectCategory(categoryId: number | null): void {
@@ -331,6 +353,32 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   retryCatalogLoad(): void {
     this.loadCatalog();
+  }
+
+  startCheckout(): void {
+    if (this.cartItems.length === 0) {
+      this.checkoutStarted = false;
+      return;
+    }
+
+    this.checkoutStarted = true;
+    this.mobileCartOpen = false;
+    this.checkoutError = '';
+    this.checkoutSuccess = '';
+    this.scrollToSection('checkoutSection');
+  }
+
+  continueShopping(): void {
+    this.checkoutStarted = false;
+    this.scrollToSection('shopSection');
+  }
+
+  toggleMobileCart(): void {
+    this.mobileCartOpen = !this.mobileCartOpen;
+  }
+
+  closeMobileCart(): void {
+    this.mobileCartOpen = false;
   }
 
   openProductDetails(product: ShopProduct): void {
@@ -395,6 +443,16 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.persistCartItems();
   }
 
+  addProductSelectionToCart(product: ShopProduct): void {
+    if (product.qtyAvailable <= 0) {
+      this.checkoutError = `${product.name} is out of stock right now.`;
+      return;
+    }
+
+    this.addProductToCart(product, this.getProductQuantity(product));
+    this.mobileCartOpen = true;
+  }
+
   addSelectedProductToCart(): void {
     if (!this.selectedProduct) {
       return;
@@ -402,7 +460,7 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.addProductToCart(this.selectedProduct, this.detailQuantity);
     this.closeProductDetails();
-    this.scrollToSection('checkoutSection');
+    this.mobileCartOpen = true;
   }
 
   updateCartQuantity(item: CartItem, rawValue: string | number): void {
@@ -436,6 +494,12 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cartItems = this.cartItems.filter(
       current => !(current.productId === item.productId && current.locationId === item.locationId)
     );
+
+    if (this.cartItems.length === 0) {
+      this.checkoutStarted = false;
+      this.mobileCartOpen = false;
+    }
+
     this.persistCartItems();
   }
 
@@ -481,6 +545,8 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
         next: order => {
           this.checkoutSuccess = `Saved successfully. Order ${order.orderNo} is now pending review and the stock has been reserved.`;
           this.cartItems = [];
+          this.checkoutStarted = false;
+          this.mobileCartOpen = false;
           this.persistCartItems();
           this.resetCheckoutAfterSuccess();
           this.persistGuestCheckoutDraft();
@@ -507,29 +573,17 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    this.updateScrollMetrics();
-    const target = this.getSectionTarget(targetId);
-    if (!target) {
-      return;
-    }
-
     this.activeSectionId = targetId;
+    this.queueSectionScroll(targetId);
+  }
 
-    const sectionOffset = this.stickyStackHeightPx + HomeComponent.SECTION_SCROLL_PADDING_PX;
-    const scrollContainer = this.resolveScrollContainer(target);
-
-    if (scrollContainer) {
-      const containerRect = scrollContainer.getBoundingClientRect();
-      const top = Math.max(
-        0,
-        target.getBoundingClientRect().top - containerRect.top + scrollContainer.scrollTop - sectionOffset
-      );
-      scrollContainer.scrollTo({ top, behavior: 'smooth' });
+  onLayoutAssetSettled(): void {
+    if (!this.isBrowser) {
       return;
     }
 
-    const top = Math.max(0, target.getBoundingClientRect().top + window.scrollY - sectionOffset);
-    window.scrollTo({ top, behavior: 'smooth' });
+    this.scheduleScrollMetricUpdate();
+    this.flushPendingSectionScroll();
   }
 
   useFallbackImage(event: Event): void {
@@ -540,7 +594,10 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (!target.src.includes(this.fallbackImage)) {
       target.src = this.fallbackImage;
+      return;
     }
+
+    this.onLayoutAssetSettled();
   }
 
   formatMoney(value: number): string {
@@ -558,6 +615,37 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   getCartLineTotal(item: CartItem): number {
     return item.price * item.quantity;
+  }
+
+  getProductQuantity(product: ShopProduct): number {
+    const key = this.getProductQuantityKey(product);
+    const quantity = this.productQuantities[key] ?? 1;
+    return this.clampProductQuantity(product, quantity);
+  }
+
+  setProductQuantity(product: ShopProduct, rawValue: string | number): void {
+    const key = this.getProductQuantityKey(product);
+    this.productQuantities[key] = this.clampProductQuantity(product, rawValue);
+  }
+
+  increaseProductQuantity(product: ShopProduct): void {
+    this.setProductQuantity(product, this.getProductQuantity(product) + 1);
+  }
+
+  decreaseProductQuantity(product: ShopProduct): void {
+    this.setProductQuantity(product, this.getProductQuantity(product) - 1);
+  }
+
+  getStockStateLabel(product: ShopProduct): string {
+    if (product.qtyAvailable <= 0) {
+      return 'Out of stock';
+    }
+
+    if (product.qtyAvailable <= HomeComponent.LOW_STOCK_THRESHOLD) {
+      return 'Low stock';
+    }
+
+    return 'In stock';
   }
 
   trackByCategoryId(_index: number, category: ShopCategory): number {
@@ -601,6 +689,47 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.appRefreshSub = this.appRefreshService.refresh$.subscribe(event => this.handleAppRefresh(event));
   }
 
+  private enablePublicPageScrolling(): void {
+    if (!this.isBrowser || this.previousDocumentScrollStyles) {
+      return;
+    }
+
+    const html = document.documentElement;
+    const body = document.body;
+
+    this.previousDocumentScrollStyles = {
+      htmlHeight: html.style.height,
+      htmlOverflowY: html.style.overflowY,
+      bodyHeight: body.style.height,
+      bodyMinHeight: body.style.minHeight,
+      bodyOverflowX: body.style.overflowX,
+      bodyOverflowY: body.style.overflowY
+    };
+
+    html.style.height = 'auto';
+    html.style.overflowY = 'auto';
+    body.style.height = 'auto';
+    body.style.minHeight = '100dvh';
+    body.style.overflowX = 'clip';
+    body.style.overflowY = 'visible';
+  }
+
+  private restoreDocumentScrolling(): void {
+    if (!this.isBrowser || !this.previousDocumentScrollStyles) {
+      return;
+    }
+
+    const html = document.documentElement;
+    const body = document.body;
+    html.style.height = this.previousDocumentScrollStyles.htmlHeight;
+    html.style.overflowY = this.previousDocumentScrollStyles.htmlOverflowY;
+    body.style.height = this.previousDocumentScrollStyles.bodyHeight;
+    body.style.minHeight = this.previousDocumentScrollStyles.bodyMinHeight;
+    body.style.overflowX = this.previousDocumentScrollStyles.bodyOverflowX;
+    body.style.overflowY = this.previousDocumentScrollStyles.bodyOverflowY;
+    this.previousDocumentScrollStyles = null;
+  }
+
   private scheduleScrollMetricUpdate(): void {
     if (!this.isBrowser) {
       return;
@@ -615,6 +744,91 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.updateScrollMetrics();
       this.registerSectionObserver();
     }, 0);
+  }
+
+  private queueSectionScroll(targetId: string): void {
+    if (!this.isBrowser) {
+      return;
+    }
+
+    this.pendingScrollTargetId = targetId;
+    const requestId = ++this.scrollRequestId;
+    this.waitForStableLayoutThenScroll(requestId);
+  }
+
+  private waitForStableLayoutThenScroll(requestId: number): void {
+    if (!this.isBrowser || requestId !== this.scrollRequestId) {
+      return;
+    }
+
+    if (this.scrollReadyTimer !== null) {
+      window.clearTimeout(this.scrollReadyTimer);
+      this.scrollReadyTimer = null;
+    }
+
+    if (!this.isLayoutReadyForScroll()) {
+      this.scrollReadyTimer = window.setTimeout(() => this.waitForStableLayoutThenScroll(requestId), 40);
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        if (requestId !== this.scrollRequestId) {
+          return;
+        }
+
+        const targetId = this.pendingScrollTargetId;
+        if (!targetId) {
+          return;
+        }
+
+        this.performSectionScroll(targetId);
+        this.pendingScrollTargetId = null;
+      });
+    });
+  }
+
+  private isLayoutReadyForScroll(): boolean {
+    if (document.readyState === 'loading') {
+      return false;
+    }
+
+    if (this.metaLoading || this.catalogLoading) {
+      return false;
+    }
+
+    return this.areLayoutImagesSettled();
+  }
+
+  private areLayoutImagesSettled(): boolean {
+    const images = Array.from(document.querySelectorAll<HTMLImageElement>('.home-page img'));
+    return images.every(image => image.complete);
+  }
+
+  private flushPendingSectionScroll(): void {
+    if (!this.pendingScrollTargetId) {
+      return;
+    }
+
+    this.queueSectionScroll(this.pendingScrollTargetId);
+  }
+
+  private performSectionScroll(targetId: string): void {
+    this.updateScrollMetrics();
+    const target = this.getSectionTarget(targetId);
+    if (!target) {
+      return;
+    }
+
+    const sectionOffset = this.getStickyScrollOffset(targetId);
+    const top = Math.max(0, target.getBoundingClientRect().top + window.scrollY - sectionOffset);
+    window.scrollTo({ top, behavior: 'smooth' });
+  }
+
+  private getStickyScrollOffset(targetId: string): number {
+    const stickyStack = document.querySelector<HTMLElement>('.top-stack');
+    const stickyStackHeight = Math.ceil(stickyStack?.getBoundingClientRect().height ?? this.stickyStackHeightPx);
+    return stickyStackHeight + this.getSectionScrollPadding(targetId);
   }
 
   private updateScrollMetrics(): void {
@@ -667,6 +881,12 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
     );
 
     sections.forEach(section => this.sectionObserver?.observe(section));
+  }
+
+  private getSectionScrollPadding(targetId: string): number {
+    return targetId === 'shopSection'
+      ? HomeComponent.SECTION_SCROLL_PADDING_PX + 16
+      : HomeComponent.SECTION_SCROLL_PADDING_PX;
   }
 
   private getSectionTarget(targetId: string): HTMLElement | null {
@@ -770,7 +990,13 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
         catchError(() => of([] as ShopCategory[]))
       )
     })
-      .pipe(finalize(() => (this.metaLoading = false)))
+      .pipe(
+        finalize(() => {
+          this.metaLoading = false;
+          this.scheduleScrollMetricUpdate();
+          this.flushPendingSectionScroll();
+        })
+      )
       .subscribe(({ locations, categories }) => {
         this.locations = locations;
         this.categories = categories;
@@ -806,6 +1032,8 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
         finalize(() => {
           this.catalogLoading = false;
           this.catalogRefreshing = false;
+          this.scheduleScrollMetricUpdate();
+          this.flushPendingSectionScroll();
         })
       )
       .subscribe({
@@ -815,6 +1043,7 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
           this.totalProducts = result.total;
           this.hasMoreProducts = result.hasMore;
           this.appliedLocation = result.appliedLocation;
+          this.syncProductQuantities(result.products);
           this.syncCartAvailability(result.products);
           this.syncSelectedProduct(result.products);
           this.lastSyncedLabel = new Intl.DateTimeFormat(APP_LOCALE, {
@@ -940,7 +1169,19 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
       })
       .filter((item): item is CartItem => item !== null);
 
+    if (this.cartItems.length === 0) {
+      this.checkoutStarted = false;
+      this.mobileCartOpen = false;
+    }
+
     this.persistCartItems();
+  }
+
+  private syncProductQuantities(products: ShopProduct[]): void {
+    for (const product of products) {
+      const key = this.getProductQuantityKey(product);
+      this.productQuantities[key] = this.clampProductQuantity(product, this.productQuantities[key] ?? 1);
+    }
   }
 
   private syncSelectedProduct(products: ShopProduct[]): void {
@@ -989,6 +1230,21 @@ export class HomeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.checkout = this.createDefaultCheckoutState();
     this.checkout.customerName = preservedName;
     this.checkout.mobileNumber = preservedMobile;
+  }
+
+  private getProductQuantityKey(product: ShopProduct): string {
+    return `${product.id}-${product.locationId ?? 0}`;
+  }
+
+  private clampProductQuantity(product: ShopProduct, rawValue: string | number): number {
+    const parsed = Number(rawValue);
+    const maxQuantity = Math.max(product.qtyAvailable, 1);
+
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return 1;
+    }
+
+    return Math.min(Math.trunc(parsed), maxQuantity);
   }
 
   private restoreCartItems(): void {
